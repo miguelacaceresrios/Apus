@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>apus</title>
+<style>
+	:root {
+		color-scheme: light dark;
+		--bg: #fbfaf8;
+		--panel: #ffffff;
+		--line: #e6e2dc;
+		--ink: #1c1a17;
+		--soft: #6f6a62;
+		--accent: #b4531f;
+		--accent-ink: #ffffff;
+		--dirty: #b4531f;
+		--ahead: #2f6f4f;
+		--clean: #9a948a;
+		--warn: #8a6d1f;
+		--bad: #a52c2c;
+		--mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--bg: #17161a;
+			--panel: #1e1d22;
+			--line: #32303a;
+			--ink: #ecebe8;
+			--soft: #9b958d;
+			--accent: #e0813f;
+			--accent-ink: #1a1206;
+			--dirty: #e0813f;
+			--ahead: #63c295;
+			--clean: #6a655e;
+			--warn: #d9b45a;
+			--bad: #e97b7b;
+		}
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+		background: var(--bg);
+		color: var(--ink);
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+	header {
+		display: flex; align-items: center; gap: 10px;
+		padding: 10px 14px;
+		border-bottom: 1px solid var(--line);
+		background: var(--panel);
+		flex: none;
+	}
+	header .logo { font-weight: 650; letter-spacing: .02em; }
+	header .logo span { color: var(--accent); }
+	header .bases { color: var(--soft); font-size: 12px; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
+	button {
+		font: inherit; color: inherit;
+		background: transparent;
+		border: 1px solid var(--line);
+		border-radius: 7px;
+		padding: 5px 10px;
+		cursor: pointer;
+	}
+	button:hover { border-color: var(--accent); }
+	button:disabled { opacity: .5; cursor: default; border-color: var(--line); }
+	button.primary {
+		background: var(--accent); color: var(--accent-ink);
+		border-color: var(--accent); font-weight: 600;
+	}
+	main { flex: 1; display: flex; min-height: 0; }
+
+	/* lista de repos */
+	#list { width: 290px; flex: none; border-right: 1px solid var(--line); overflow-y: auto; background: var(--panel); }
+	.repo {
+		display: grid; grid-template-columns: 18px 1fr; gap: 8px;
+		padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--line);
+	}
+	.repo:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+	.repo.sel { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+	.repo .ico { font-size: 13px; line-height: 1.6; }
+	.repo.d .ico { color: var(--dirty); }
+	.repo.a .ico { color: var(--ahead); }
+	.repo.c .ico { color: var(--clean); }
+	.repo .name { font-weight: 550; }
+	.repo .sub { color: var(--soft); font-size: 12px; }
+
+	/* panel derecho */
+	#detail { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+	.empty { margin: auto; color: var(--soft); text-align: center; padding: 20px; }
+	.head { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+	.head h2 { margin: 0; font-size: 16px; }
+	.head .branch { font-family: var(--mono); font-size: 12px; color: var(--soft); }
+	.head a { color: var(--accent); font-size: 12px; margin-left: auto; text-decoration: none; }
+	.head a:hover { text-decoration: underline; }
+
+	#files { flex: 1; overflow-y: auto; padding: 6px 0; }
+	.file { display: grid; grid-template-columns: 22px 34px 1fr; align-items: center; gap: 6px; padding: 4px 16px; }
+	.file:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+	.file input { accent-color: var(--accent); width: 15px; height: 15px; }
+	.file .code { font-family: var(--mono); font-size: 11px; color: var(--soft); text-align: center; }
+	.file .code.M { color: var(--warn); }
+	.file .code.A, .file .code\?\? { color: var(--ahead); }
+	.file .code.D { color: var(--bad); }
+	.file .path { font-family: var(--mono); font-size: 12.5px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.file .path:hover { text-decoration: underline; }
+	.diff {
+		grid-column: 1 / -1; margin: 4px 0 8px; padding: 8px 10px;
+		background: var(--bg); border: 1px solid var(--line); border-radius: 7px;
+		font-family: var(--mono); font-size: 11.5px; white-space: pre; overflow-x: auto; max-height: 300px;
+	}
+	.diff .plus { color: var(--ahead); }
+	.diff .minus { color: var(--bad); }
+	.diff .at { color: var(--soft); }
+
+	.toolbar { padding: 6px 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--soft); }
+	.toolbar button { padding: 2px 8px; font-size: 12px; }
+
+	footer { flex: none; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+	.row { display: flex; gap: 8px; }
+	input[type=text] {
+		font: inherit; flex: 1; min-width: 0;
+		padding: 8px 10px; border-radius: 7px;
+		border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+	}
+	input[type=text]:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: -1px; border-color: var(--accent); }
+	.hint { font-size: 12px; color: var(--soft); margin-top: 6px; }
+	#log {
+		margin-top: 10px; max-height: 170px; overflow-y: auto;
+		font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap;
+		border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; background: var(--bg);
+	}
+	#log:empty { display: none; }
+	#log .cmd { color: var(--soft); }
+	#log .ok { color: var(--ahead); }
+	#log .bad { color: var(--bad); }
+	#log .warn { color: var(--warn); }
+
+	/* vinculación */
+	.link { padding: 14px 16px; overflow-y: auto; }
+	.link h3 { margin: 0 0 4px; font-size: 14px; }
+	.link p { margin: 0 0 12px; color: var(--soft); font-size: 12.5px; }
+	.ghlist { border: 1px solid var(--line); border-radius: 8px; max-height: 240px; overflow-y: auto; margin-bottom: 10px; }
+	.gh { display: flex; gap: 8px; align-items: baseline; padding: 7px 10px; cursor: pointer; border-bottom: 1px solid var(--line); }
+	.gh:last-child { border-bottom: 0; }
+	.gh:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+	.gh .n { font-weight: 550; }
+	.gh .m { color: var(--soft); font-size: 12px; margin-left: auto; font-family: var(--mono); }
+	.sep { display: flex; align-items: center; gap: 10px; color: var(--soft); font-size: 12px; margin: 14px 0 10px; }
+	.sep::before, .sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+	select { font: inherit; padding: 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+	<div class="logo">apus<span>↑</span></div>
+	<button id="refresh" title="Actualizar (R)">↻</button>
+	<div class="bases" id="bases"></div>
+</header>
+
+<main>
+	<div id="list"></div>
+	<div id="detail"><div class="empty">Elegí un repo de la izquierda</div></div>
+</main>
+
+<script>
+const api = async (path, opts = {}) => {
+	const res = await fetch(path, {
+		...opts,
+		headers: { "X-Apus": "1", "Content-Type": "application/json", ...(opts.headers || {}) },
+	});
+	if (!res.ok) throw new Error((await res.text()) || res.statusText);
+	return res.json();
+};
+const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body) });
+const el = (tag, cls, text) => {
+	const n = document.createElement(tag);
+	if (cls) n.className = cls;
+	if (text !== undefined) n.textContent = text;
+	return n;
+};
+
+let repos = [];
+let current = null;      // repo seleccionado (path)
+let detail = null;       // último estado cargado del repo actual
+let busy = false;
+let openDiff = null;
+
+const stateClass = (r) => r.icon === "●" ? "d" : (r.icon === "↑" || r.icon === "⚲") ? "a" : "c";
+
+async function loadRepos(keepSelection = true) {
+	const data = await api("/api/repos");
+	repos = data.repos || [];
+	document.getElementById("bases").textContent = (data.bases || []).join("  ·  ");
+	const list = document.getElementById("list");
+	list.textContent = "";
+	if (!repos.length) {
+		const none = el("div", "empty", "No encontré repos acá. Arrancá apus ui desde la carpeta de tus proyectos, o pasá --dir.");
+		none.style.padding = "20px";
+		list.append(none);
+		return;
+	}
+	for (const r of repos) {
+		const row = el("div", "repo " + stateClass(r));
+		if (r.path === current) row.classList.add("sel");
+		row.append(el("div", "ico", r.icon));
+		const body = el("div");
+		body.append(el("div", "name", r.name), el("div", "sub", r.summary));
+		row.append(body);
+		row.onclick = () => select(r.path);
+		list.append(row);
+	}
+	if (keepSelection && current && !repos.some((r) => r.path === current)) current = null;
+	if (!current && repos.length) select(repos[0].path);
+}
+
+async function select(path) {
+	current = path;
+	openDiff = null;
+	for (const [i, node] of [...document.querySelectorAll(".repo")].entries()) {
+		node.classList.toggle("sel", repos[i] && repos[i].path === path);
+	}
+	detail = await api("/api/repo?path=" + encodeURIComponent(path));
+	render();
+}
+
+function render() {
+	const pane = document.getElementById("detail");
+	pane.textContent = "";
+	if (!detail) {
+		pane.append(el("div", "empty", "Elegí un repo de la izquierda"));
+		return;
+	}
+	const r = detail;
+
+	const head = el("div", "head");
+	head.append(el("h2", null, r.name));
+	head.append(el("div", "branch", r.detached ? "HEAD desprendido" : (r.branch + (r.upstream ? " → " + r.upstream : " · sin upstream"))));
+	if (r.browse) {
+		const a = el("a", null, r.browse.replace(/^https:\/\//, ""));
+		a.href = r.browse; a.target = "_blank"; a.rel = "noreferrer";
+		head.append(a);
+	}
+	pane.append(head);
+
+	if (!r.remoteUrl) { renderLink(pane, r); return; }
+
+	const files = el("div", null);
+	files.id = "files";
+	if (!(r.files || []).length) {
+		const msg = r.ahead > 0
+			? `Sin cambios, pero hay ${r.ahead} commit${r.ahead > 1 ? "s" : ""} esperando. Tocá Subir.`
+			: "Todo limpio por acá.";
+		const none = el("div", "empty", msg);
+		files.append(none);
+	} else {
+		for (const f of r.files) {
+			const row = el("div", "file");
+			const cb = el("input");
+			cb.type = "checkbox"; cb.checked = true; cb.dataset.path = f.path;
+			const code = el("div", "code " + (f.index + f.work).trim(), (f.index + f.work).trim());
+			const p = el("div", "path", f.origin ? f.origin + " → " + f.path : f.path);
+			p.title = "ver cambios";
+			p.onclick = () => toggleDiff(row, f.path);
+			row.append(cb, code, p);
+			files.append(row);
+		}
+	}
+	pane.append(files);
+
+	const bar = el("div", "toolbar");
+	const all = el("button", null, "todos");
+	all.onclick = () => setAll(true);
+	const none = el("button", null, "ninguno");
+	none.onclick = () => setAll(false);
+	const count = el("span");
+	count.id = "count";
+	bar.append(all, none, count);
+	pane.append(bar);
+
+	const foot = el("footer");
+	const row = el("div", "row");
+	const msg = el("input");
+	msg.type = "text"; msg.id = "msg";
+	msg.placeholder = "chore: actualización " + stamp();
+	msg.onkeydown = (e) => { if (e.key === "Enter") push(); };
+	const btn = el("button", "primary", "Subir ↑");
+	btn.id = "push";
+	btn.onclick = () => push();
+	row.append(msg, btn);
+	foot.append(row);
+	foot.append(el("div", "hint", "Enter para subir. El mensaje vacío usa el automático."));
+	const log = el("div");
+	log.id = "log";
+	foot.append(log);
+	pane.append(foot);
+
+	updateCount();
+	document.getElementById("files").addEventListener("change", updateCount);
+	msg.focus();
+}
+
+function renderLink(pane, r) {
+	const box = el("div", "link");
+	box.append(el("h3", null, "Este repo todavía no está vinculado"));
+	box.append(el("p", null, "Elegí uno de tus repos de GitHub, creá uno nuevo, o pegá una URL."));
+	const list = el("div", "ghlist");
+	list.textContent = "Buscando tus repos…";
+	box.append(list);
+
+	box.append(el("div", "sep", "o creá uno nuevo"));
+	const createRow = el("div", "row");
+	const name = el("input");
+	name.type = "text"; name.value = r.name;
+	const vis = document.createElement("select");
+	for (const [v, label] of [["private", "privado"], ["public", "público"]]) {
+		const o = document.createElement("option");
+		o.value = v; o.textContent = label;
+		vis.append(o);
+	}
+	const create = el("button", "primary", "Crear");
+	create.onclick = () => link({ create: name.value.trim(), visibility: vis.value });
+	createRow.append(name, vis, create);
+	box.append(createRow);
+
+	box.append(el("div", "sep", "o pegá una URL"));
+	const urlRow = el("div", "row");
+	const url = el("input");
+	url.type = "text"; url.placeholder = "https://github.com/usuario/repo.git  ·  usuario/repo";
+	url.onkeydown = (e) => { if (e.key === "Enter") link({ url: url.value.trim() }); };
+	const go = el("button", null, "Vincular");
+	go.onclick = () => link({ url: url.value.trim() });
+	urlRow.append(url, go);
+	box.append(urlRow);
+
+	const log = el("div");
+	log.id = "log";
+	box.append(log);
+	pane.append(box);
+
+	api("/api/gh").then((gh) => {
+		list.textContent = "";
+		if (!gh.available) {
+			list.append(el("div", "empty", "gh no está instalado. Instalá GitHub CLI para elegir de tu cuenta, o pegá la URL acá abajo."));
+			return;
+		}
+		if (!gh.ready) {
+			list.append(el("div", "empty", "gh está instalado pero sin sesión: corré 'gh auth login'."));
+			return;
+		}
+		if (!(gh.repos || []).length) {
+			list.append(el("div", "empty", "Tu cuenta no tiene repos todavía. Creá uno acá abajo."));
+			return;
+		}
+		for (const g of gh.repos) {
+			const row = el("div", "gh");
+			row.append(el("span", "n", g.nameWithOwner));
+			row.append(el("span", "m", (g.visibility || "").toLowerCase()));
+			row.onclick = () => link({ url: gh.protocol === "ssh" ? g.sshUrl : g.url });
+			list.append(row);
+		}
+	}).catch((e) => { list.textContent = "No pude hablar con gh: " + e.message; });
+}
+
+async function link(body) {
+	if (busy) return;
+	if (!body.url && !body.create) { say("bad", "Poné una URL o un nombre."); return; }
+	busy = true;
+	try {
+		const res = await post("/api/link", { path: current, ...body });
+		say("ok", "origin → " + res.label);
+		detail = res.repo;
+		render();
+		loadRepos();
+	} catch (e) {
+		say("bad", e.message);
+	} finally {
+		busy = false;
+	}
+}
+
+function setAll(on) {
+	for (const cb of document.querySelectorAll("#files input")) cb.checked = on;
+	updateCount();
+}
+
+function selected() {
+	return [...document.querySelectorAll("#files input")].filter((c) => c.checked).map((c) => c.dataset.path);
+}
+
+function updateCount() {
+	const count = document.getElementById("count");
+	if (!count) return;
+	const total = document.querySelectorAll("#files input").length;
+	const n = selected().length;
+	count.textContent = total ? `${n} de ${total} seleccionados` : "";
+	const btn = document.getElementById("push");
+	if (btn) btn.disabled = total > 0 && n === 0 && !(detail && detail.ahead > 0);
+}
+
+async function toggleDiff(row, path) {
+	const existing = row.parentElement.querySelector(".diff");
+	if (existing) existing.remove();
+	if (openDiff === path) { openDiff = null; return; }
+	openDiff = path;
+	const box = el("div", "diff", "cargando…");
+	row.after(box);
+	try {
+		const res = await api("/api/diff?path=" + encodeURIComponent(current) + "&file=" + encodeURIComponent(path));
+		box.textContent = "";
+		const text = res.diff || "(sin cambios que mostrar)";
+		for (const line of text.split("\n").slice(0, 600)) {
+			const cls = line.startsWith("+") ? "plus" : line.startsWith("-") ? "minus" : line.startsWith("@@") ? "at" : null;
+			box.append(el("div", cls, line));
+		}
+	} catch (e) {
+		box.textContent = "no pude leer el diff: " + e.message;
+	}
+}
+
+function say(kind, text) {
+	const log = document.getElementById("log");
+	if (!log) return;
+	log.append(el("div", kind, text));
+	log.scrollTop = log.scrollHeight;
+}
+
+async function push() {
+	if (busy || !current) return;
+	const btn = document.getElementById("push");
+	const msg = document.getElementById("msg");
+	const paths = selected();
+	const total = document.querySelectorAll("#files input").length;
+	busy = true;
+	btn.disabled = true;
+	btn.textContent = "Subiendo…";
+	document.getElementById("log").textContent = "";
+	try {
+		const res = await post("/api/push", {
+			path: current,
+			message: msg.value.trim(),
+			paths: paths.length === total ? [] : paths,
+		});
+		// Redibujamos primero (el push cambió el estado) y después escribimos el
+		// registro, que vive en el panel nuevo.
+		const typed = msg.value;
+		detail = res.repo;
+		render();
+		if (res.error && document.getElementById("msg")) document.getElementById("msg").value = typed;
+		for (const s of (res.result && res.result.steps) || []) {
+			say("cmd", "» " + s.cmd);
+			if (s.out) say(null, s.out);
+		}
+		if (res.error) {
+			say("bad", "✖ " + res.error);
+			if (res.hint) say("warn", res.hint);
+		} else {
+			say("ok", "✔ " + (res.result.summary || "listo"));
+			if (res.result.url) say(null, res.result.url);
+		}
+		loadRepos();
+	} catch (e) {
+		say("bad", e.message);
+	} finally {
+		busy = false;
+		const b = document.getElementById("push");
+		if (b) { b.disabled = false; b.textContent = "Subir ↑"; }
+	}
+}
+
+function stamp() {
+	const d = new Date(), p = (n) => String(n).padStart(2, "0");
+	return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+document.getElementById("refresh").onclick = () => loadRepos();
+document.addEventListener("keydown", (e) => {
+	if (e.target.tagName === "INPUT") return;
+	if (e.key === "r") loadRepos();
+});
+setInterval(() => { if (!busy) loadRepos(); }, 6000);
+loadRepos();
+</script>
+</body>
+</html>
