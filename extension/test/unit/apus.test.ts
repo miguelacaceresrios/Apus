@@ -49,8 +49,9 @@ test('parseFlight: falla el push con el commit ya hecho', () => {
 
 test('parseFlight: sin línea de resumen', () => {
   assert.equal(parseFlight(1, 'algo raro\n').summary, 'algo raro');
-  assert.equal(parseFlight(-1, '').summary, 'apus no terminó a tiempo');
-  assert.equal(parseFlight(2, '').summary, 'apus terminó con código 2');
+  // Sin nada que mostrar, la interfaz explica el código en su idioma.
+  assert.equal(parseFlight(-1, 'a medias').summary, undefined);
+  assert.equal(parseFlight(2, '').summary, undefined);
 });
 
 test('parseFlight: ignora colores', () => {

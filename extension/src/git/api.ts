@@ -52,7 +52,7 @@ export interface Change {
 export async function getGitApi(log: vscode.LogOutputChannel): Promise<GitAPI | undefined> {
   const extension = vscode.extensions.getExtension<GitExtension>('vscode.git');
   if (!extension) {
-    log.error('no está la extensión Git de VS Code');
+    log.error('the built-in Git extension is not installed');
     return undefined;
   }
   try {
@@ -60,7 +60,7 @@ export async function getGitApi(log: vscode.LogOutputChannel): Promise<GitAPI | 
     return exports.getAPI(1);
   } catch (e) {
     // getAPI falla si el usuario apagó git.enabled.
-    log.error('la extensión Git de VS Code no está disponible:', e instanceof Error ? e.message : String(e));
+    log.error('the built-in Git extension is not available:', e instanceof Error ? e.message : String(e));
     return undefined;
   }
 }

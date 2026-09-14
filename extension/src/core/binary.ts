@@ -2,10 +2,22 @@ import { constants, promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-export type BinaryLookup = { ok: true; path: string } | { ok: false; reason: string };
+export type BinaryProblem =
+  /** No hay apus en el PATH. */
+  | 'notOnPath'
+  /** apus.path no es una ruta absoluta. */
+  | 'notAbsolute'
+  /** apus.path apunta a apusw.exe, la versión de ventana, y no hay apus.exe al lado. */
+  | 'windowBinary'
+  /** En Windows, apus.path no es un .exe. */
+  | 'notExe'
+  /** apus.path apunta a algo que no existe o no se puede ejecutar. */
+  | 'missing';
+
+export type BinaryLookup = { ok: true; path: string } | { ok: false; problem: BinaryProblem; path?: string };
 
 const isWindows = process.platform === 'win32';
-const EXE = isWindows ? 'apus.exe' : 'apus';
+export const APUS_EXE = isWindows ? 'apus.exe' : 'apus';
 
 /**
  * Encuentra el binario de apus: la ruta configurada si hay una, si no el PATH.
@@ -19,18 +31,18 @@ export async function findApus(configured: string, env: NodeJS.ProcessEnv = proc
   }
 
   for (const dir of pathEntries(env)) {
-    const candidate = path.join(dir, EXE);
+    const candidate = path.join(dir, APUS_EXE);
     if (await isExecutable(candidate)) {
       return { ok: true, path: candidate };
     }
   }
-  return { ok: false, reason: `no encontré ${EXE} en el PATH` };
+  return { ok: false, problem: 'notOnPath' };
 }
 
 async function checkConfigured(wanted: string): Promise<BinaryLookup> {
   const file = wanted.startsWith('~') ? path.join(os.homedir(), wanted.slice(1)) : wanted;
   if (!path.isAbsolute(file)) {
-    return { ok: false, reason: `apus.path tiene que ser una ruta absoluta (hoy es "${wanted}")` };
+    return { ok: false, problem: 'notAbsolute', path: wanted };
   }
   if (isWindows) {
     // apusw.exe es la versión de ventana: ante un error abre un diálogo en vez de
@@ -39,23 +51,23 @@ async function checkConfigured(wanted: string): Promise<BinaryLookup> {
       const sibling = path.join(path.dirname(file), 'apus.exe');
       return (await isExecutable(sibling))
         ? { ok: true, path: sibling }
-        : { ok: false, reason: 'apusw.exe es la versión de ventana: apuntá apus.path a apus.exe' };
+        : { ok: false, problem: 'windowBinary', path: file };
     }
     if (path.extname(file).toLowerCase() !== '.exe') {
-      return { ok: false, reason: 'apus.path tiene que apuntar a un .exe' };
+      return { ok: false, problem: 'notExe', path: file };
     }
   }
   return (await isExecutable(file))
     ? { ok: true, path: file }
-    : { ok: false, reason: `apus.path apunta a ${file}, que no existe o no es ejecutable` };
+    : { ok: false, problem: 'missing', path: file };
 }
 
 function pathEntries(env: NodeJS.ProcessEnv): string[] {
-  // En Windows la variable puede llamarse Path.
-  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH');
-  const value = key ? env[key] ?? '' : '';
-  return value
-    .split(path.delimiter)
+  // En Windows la variable puede llamarse Path, y un proceso lanzado con un
+  // entorno armado a mano puede traer Path y PATH a la vez: se miran todas.
+  return Object.keys(env)
+    .filter((k) => k.toUpperCase() === 'PATH')
+    .flatMap((k) => (env[k] ?? '').split(path.delimiter))
     .map((d) => d.trim().replace(/^"(.*)"$/, '$1'))
     .filter((d) => d && path.isAbsolute(d));
 }

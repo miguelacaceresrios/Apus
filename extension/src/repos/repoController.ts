@@ -10,6 +10,9 @@ import type { Repository } from '../git/api';
 
 export type FlightKind = 'auto' | 'manual';
 
+/** Por qué no se puede hacer auto-commit ahora. */
+export type BlockReason = 'untrusted' | 'conflicts' | 'detached';
+
 export interface FlightReport {
   repo: RepoController;
   kind: FlightKind;
@@ -21,7 +24,7 @@ export interface FlightReport {
 export interface RepoServices {
   gitPath: string;
   log: vscode.LogOutputChannel;
-  /** Ruta de apus, o undefined si no está (y ya se le avisó al usuario). */
+  /** Ruta de apus, o undefined si no está. */
   binary(interactive: boolean): Promise<string | undefined>;
   watchStore: WatchStore;
   onFlight(report: FlightReport, repeatedError: boolean): void;
@@ -62,10 +65,10 @@ export class RepoController implements vscode.Disposable {
   private _ahead = 0;
   private _branch: string | undefined;
   private _upstream: string | undefined;
-  private _blocked: string | undefined;
+  private _blocked: BlockReason | undefined;
   private _lastPushAt: number | undefined;
   private _lastAutoAt: number | undefined;
-  private _lastError: { summary: string; detail: string | undefined; at: number } | undefined;
+  private _lastError: { flight: Flight; at: number } | undefined;
 
   private ignored: (relativePath: string) => boolean;
   private changeSignature = '';
@@ -103,17 +106,16 @@ export class RepoController implements vscode.Disposable {
   get ahead(): number { return this._ahead; }
   get branch(): string | undefined { return this._branch; }
   get upstream(): string | undefined { return this._upstream; }
-  /** Por qué no se puede hacer auto-commit ahora, si hay un motivo. */
-  get blocked(): string | undefined { return this._blocked; }
+  get blocked(): BlockReason | undefined { return this._blocked; }
   get nextFlightAt(): number | undefined { return this.scheduler.dueAt; }
   get lastPushAt(): number | undefined { return this._lastPushAt; }
   get lastAutoAt(): number | undefined { return this._lastAutoAt; }
-  get lastError() { return this._lastError; }
+  get lastError(): { flight: Flight; at: number } | undefined { return this._lastError; }
 
   async setWatching(on: boolean): Promise<void> {
     this._watching = on;
     await this.services.watchStore.set(this.key, on);
-    this.services.log.info(`[${this.name}] ${on ? 'vigilando' : 'en pausa'}`);
+    this.services.log.info(`[${this.name}] ${on ? 'watching' : 'paused'}`);
     this.considerFlight(on);
     this.emitter.fire();
   }
@@ -126,6 +128,7 @@ export class RepoController implements vscode.Disposable {
   noteSave(): void {
     if (this.canAutoFly()) {
       this.scheduler.poke();
+      this.emitter.fire();
     }
   }
 
@@ -167,11 +170,11 @@ export class RepoController implements vscode.Disposable {
     this._upstream = head?.upstream ? `${head.upstream.remote}/${head.upstream.name}` : undefined;
     this._ahead = head?.ahead ?? 0;
     this._blocked = !vscode.workspace.isTrusted
-      ? 'el workspace no es confiable'
+      ? 'untrusted'
       : state.mergeChanges.length > 0
-        ? 'hay conflictos sin resolver'
+        ? 'conflicts'
         : head && !head.name
-          ? 'HEAD está desprendido'
+          ? 'detached'
           : undefined;
 
     const headSignature = `${head?.commit}|${this._upstream}|${this._ahead}`;
@@ -212,7 +215,7 @@ export class RepoController implements vscode.Disposable {
     const { log } = this.services;
     if (this._flying) {
       if (kind === 'manual') {
-        void vscode.window.showInformationMessage(`apus · ${this.name}: ya está subiendo.`);
+        void vscode.window.showInformationMessage(vscode.l10n.t('apus · {0}: already pushing.', this.name));
       }
       return;
     }
@@ -240,20 +243,19 @@ export class RepoController implements vscode.Disposable {
           // Otra ventana pudo haber subido hace nada.
           const last = await lastAutoCommitAt(this.services.gitPath, this.root.fsPath);
           if (last !== undefined && Date.now() - last < this._config.minGapMs) {
-            log.info(`[${this.name}] auto-commit salteado: hubo uno ${Math.round((Date.now() - last) / 1000)} s atrás`);
+            log.info(`[${this.name}] auto-commit skipped: the last one was ${Math.round((Date.now() - last) / 1000)} s ago`);
             return undefined;
           }
         }
         const message = kind === 'auto' ? autoMessage(this._config.messageTemplate, new Date()) : undefined;
-        log.info(`[${this.name}] ${kind === 'auto' ? 'auto-commit' : 'subida manual'}: ${binary}`);
+        log.info(`[${this.name}] ${kind === 'auto' ? 'auto-commit' : 'manual push'} with ${binary}`);
         return flyApus(binary, this.root.fsPath, message);
       });
 
       if (!result.acquired) {
-        const who = result.holder ? ` (proceso ${result.holder.pid})` : '';
-        log.info(`[${this.name}] otro proceso está subiendo este repo${who}`);
+        log.info(`[${this.name}] another process is pushing this repo${result.holder ? ` (pid ${result.holder.pid})` : ''}`);
         if (kind === 'manual') {
-          void vscode.window.showInformationMessage(`apus · ${this.name}: otra ventana está subiendo este repo.`);
+          void vscode.window.showInformationMessage(vscode.l10n.t('apus · {0}: another window is pushing this repo.', this.name));
         }
         return;
       }
@@ -279,9 +281,9 @@ export class RepoController implements vscode.Disposable {
     if (flight.ok) {
       this._lastError = undefined;
     } else {
-      repeated = this._lastError?.summary === flight.summary;
-      this._lastError = { summary: flight.summary, detail: flight.detail, at: Date.now() };
-      log.warn(`[${this.name}] apus terminó con código ${flight.code}: ${flight.summary}`);
+      repeated = this._lastError?.flight.summary === flight.summary && this._lastError?.flight.code === flight.code;
+      this._lastError = { flight, at: Date.now() };
+      log.warn(`[${this.name}] apus exited with code ${flight.code}`);
     }
     this.services.onFlight({ repo: this, kind, flight, changes }, repeated);
   }
@@ -300,13 +302,13 @@ export class RepoController implements vscode.Disposable {
       }
       this.emitter.fire();
     } catch (e) {
-      log.warn(`[${this.name}] no pude leer la historia:`, e instanceof Error ? e.message : String(e));
+      log.warn(`[${this.name}] could not read history:`, e instanceof Error ? e.message : String(e));
     }
   }
 
   private compileIgnored(): (relativePath: string) => boolean {
     return compileGlobs(this._config.ignorePatterns, (pattern, error) =>
-      this.services.log.warn(`[${this.name}] apus.ignorePatterns: se ignora "${pattern}": ${error.message}`),
+      this.services.log.warn(`[${this.name}] apus.ignorePatterns: skipping "${pattern}": ${error.message}`),
     );
   }
 }

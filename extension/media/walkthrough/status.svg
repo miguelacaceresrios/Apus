@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" width="560" height="360">
+  <style>
+    .bar { fill: var(--vscode-statusBar-background, #007acc); }
+    .barfg { fill: var(--vscode-statusBar-foreground, #ffffff); }
+    .barline { stroke: var(--vscode-statusBar-foreground, #ffffff); }
+    .filler { fill: var(--vscode-statusBar-foreground, #ffffff); opacity: .35; }
+    .warn { fill: var(--vscode-statusBarItem-warningBackground, #c69026); }
+    .warnfg { fill: var(--vscode-statusBarItem-warningForeground, #ffffff); }
+    .warnline { stroke: var(--vscode-statusBarItem-warningForeground, #ffffff); }
+    text { font-family: var(--vscode-font-family, 'Segoe UI', system-ui, sans-serif); }
+  </style>
+  <defs>
+    <path id="logo" d="M12 5.11C9.92 7.75 6.72 11.53 2 16.25C3.13 17 3.89 17.75 5.02 18.89C7.66 16.25 9.74 14.17 12 12.28C14.26 14.17 16.34 16.25 18.98 18.89C20.11 17.75 20.87 17 22 16.25C17.28 11.53 14.08 7.75 12 5.11Z"/>
+    <!-- lo que se repite a la derecha de cada barra, para que parezca la de verdad -->
+    <g id="filler">
+      <rect x="286" y="10" width="40" height="8" rx="4" class="filler"/>
+      <rect x="336" y="10" width="26" height="8" rx="4" class="filler"/>
+      <rect x="372" y="10" width="48" height="8" rx="4" class="filler"/>
+    </g>
+  </defs>
+
+  <!-- 1. al día: hora del último push -->
+  <g transform="translate(64 42)">
+    <rect width="432" height="28" rx="6" class="bar"/>
+    <use href="#logo" transform="translate(12 3.5) scale(.75)" class="barfg"/>
+    <text x="36" y="18.5" font-size="12.5" class="barfg">10:48</text>
+    <use href="#filler"/>
+  </g>
+
+  <!-- 2. cambios esperando y cuenta regresiva -->
+  <g transform="translate(64 98)">
+    <rect width="432" height="28" rx="6" class="bar"/>
+    <use href="#logo" transform="translate(12 3.5) scale(.75)" class="barfg"/>
+    <text x="36" y="18.5" font-size="12.5" class="barfg">3 · 1:40</text>
+    <use href="#filler"/>
+  </g>
+
+  <!-- 3. en pausa -->
+  <g transform="translate(64 154)">
+    <rect width="432" height="28" rx="6" class="bar"/>
+    <use href="#logo" transform="translate(12 3.5) scale(.75)" class="barfg"/>
+    <rect x="38" y="8.5" width="3" height="11" rx="1" class="barfg"/>
+    <rect x="44.5" y="8.5" width="3" height="11" rx="1" class="barfg"/>
+    <text x="56" y="18.5" font-size="12.5" class="barfg">2</text>
+    <use href="#filler"/>
+  </g>
+
+  <!-- 4. subiendo -->
+  <g transform="translate(64 210)">
+    <rect width="432" height="28" rx="6" class="bar"/>
+    <use href="#logo" transform="translate(12 3.5) scale(.75)" class="barfg"/>
+    <path d="M48 10.5a6 6 0 1 0 1.2 5.2" fill="none" stroke-width="1.6" stroke-linecap="round" class="barline"/>
+    <path d="M44.8 9.2l3.6 1.4-1.2 3.6" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="barline"/>
+    <use href="#filler"/>
+  </g>
+
+  <!-- 5. algo necesita atención -->
+  <g transform="translate(64 266)">
+    <rect width="432" height="28" rx="6" class="bar"/>
+    <path d="M6 0h56v28H6a6 6 0 0 1-6-6V6a6 6 0 0 1 6-6z" class="warn"/>
+    <use href="#logo" transform="translate(12 3.5) scale(.75)" class="warnfg"/>
+    <path d="M44 7.5l7 12.5H37z" fill="none" stroke-width="1.5" stroke-linejoin="round" class="warnline"/>
+    <rect x="43.3" y="11.5" width="1.4" height="4.5" rx=".7" class="warnfg"/>
+    <circle cx="44" cy="18" r=".9" class="warnfg"/>
+    <use href="#filler"/>
+  </g>
+</svg>

@@ -18,8 +18,12 @@ export const ExitCode = {
 export interface Flight {
   code: number;
   ok: boolean;
-  /** Lo que apus resume al final: "main → origin/main", "nada que hacer…" o el error. */
-  summary: string;
+  /**
+   * Lo que apus resume al final: "main → origin/main", "nada que hacer…" o el
+   * error, en el idioma de apus. Undefined si apus no dijo nada: la interfaz
+   * explica el código.
+   */
+  summary: string | undefined;
   /** La línea que sigue al resumen: la URL si salió bien, la pista si falló. */
   detail: string | undefined;
   committed: boolean;
@@ -51,7 +55,7 @@ export function parseFlight(code: number, stderr: string, stdout = ''): Flight {
   const text = stderr.replace(ANSI, '');
   const lines = text.split(/\r?\n/);
 
-  let summary = '';
+  let summary: string | undefined;
   let detail: string | undefined;
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i]!;
@@ -64,10 +68,8 @@ export function parseFlight(code: number, stderr: string, stdout = ''): Flight {
       break;
     }
   }
-  if (!summary) {
-    summary = code === -1
-      ? 'apus no terminó a tiempo'
-      : lines.map((l) => l.trim()).find(Boolean) ?? `apus terminó con código ${code}`;
+  if (!summary && code !== -1) {
+    summary = lines.map((l) => l.trim()).find(Boolean);
   }
 
   const ran = (cmd: string) => lines.some((l) => l.startsWith(`» git ${cmd}`));

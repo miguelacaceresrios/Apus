@@ -15,6 +15,7 @@ export class Registry implements vscode.Disposable {
   private readonly emitter = new vscode.EventEmitter<void>();
   private readonly disposables: vscode.Disposable[] = [this.emitter];
   private lastActive: RepoController | undefined;
+  private watchingAny = false;
 
   readonly onDidChange = this.emitter.event;
 
@@ -77,22 +78,26 @@ export class Registry implements vscode.Disposable {
   }
 
   /**
-   * El repo sobre el que actúa un comando: el que viene como argumento (vista,
-   * menú), el del editor, el único que hay, o el que elija el usuario.
+   * El repo sobre el que actúa un comando: el que viene como argumento (la
+   * vista y el menú pasan el controlador; los links de los tooltips, su clave),
+   * el del editor, el único que hay, o el que elija el usuario.
    */
   async resolve(arg?: unknown): Promise<RepoController | undefined> {
     if (arg instanceof RepoController) {
       return arg;
     }
+    if (typeof arg === 'string' && this.controllers.has(arg)) {
+      return this.controllers.get(arg);
+    }
     const all = this.all;
     if (all.length === 0) {
-      void vscode.window.showInformationMessage('apus: no hay repos git abiertos en esta ventana.');
+      void vscode.window.showInformationMessage(vscode.l10n.t('apus: there are no git repositories open in this window.'));
       return undefined;
     }
     return this.fromEditor() ?? (all.length === 1 ? all[0] : this.pick());
   }
 
-  async pick(title = 'apus · elegí un repo'): Promise<RepoController | undefined> {
+  async pick(title = vscode.l10n.t('apus · choose a repository')): Promise<RepoController | undefined> {
     const items = this.all.map((c) => ({
       label: `$(repo) ${c.name}`,
       description: c.branch,
@@ -129,9 +134,9 @@ export class Registry implements vscode.Disposable {
     }
     const controller = new RepoController(repo, this.services);
     this.controllers.set(key, controller);
-    this.listeners.set(key, controller.onDidChange(() => this.emitter.fire()));
-    this.services.log.info(`repo abierto: ${repo.rootUri.fsPath}`);
-    this.emitter.fire();
+    this.listeners.set(key, controller.onDidChange(() => this.changed()));
+    this.services.log.info(`repository opened: ${repo.rootUri.fsPath}`);
+    this.changed();
   }
 
   private close(repo: Repository): void {
@@ -140,6 +145,16 @@ export class Registry implements vscode.Disposable {
     this.listeners.delete(key);
     this.controllers.get(key)?.dispose();
     this.controllers.delete(key);
+    this.changed();
+  }
+
+  private changed(): void {
+    // La guía de primeros pasos marca "vigilá un repo" con esta clave.
+    const watchingAny = [...this.controllers.values()].some((c) => c.watching);
+    if (watchingAny !== this.watchingAny) {
+      this.watchingAny = watchingAny;
+      void vscode.commands.executeCommand('setContext', 'apus.watchingAny', watchingAny);
+    }
     this.emitter.fire();
   }
 }

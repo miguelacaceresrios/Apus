@@ -20,6 +20,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - name: textos extraídos al día
+        shell: bash
+        run: npm run l10n && git diff --exit-code l10n/bundle.l10n.json
       - name: pruebas
         run: npm test
       - name: empaquetar

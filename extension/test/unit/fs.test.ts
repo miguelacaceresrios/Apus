@@ -60,22 +60,25 @@ test('findApus busca en el PATH', async () => {
   const bin = await fakeBinary(withApus);
   const env = { PATH: [empty, `"${withApus}"`, 'relativa'].join(path.delimiter) };
   assert.deepEqual(await findApus('', env), { ok: true, path: bin });
-  assert.equal((await findApus('', { PATH: empty })).ok, false);
+  assert.deepEqual(await findApus('', { Path: empty }), { ok: false, problem: 'notOnPath' });
+  assert.deepEqual(await findApus('', { Path: empty, PATH: withApus }), { ok: true, path: bin });
 });
 
 test('findApus usa la ruta configurada y rechaza rutas relativas', async () => {
   const dir = await tempDir();
   const bin = await fakeBinary(dir);
+  const gone = path.join(dir, 'no-existe', EXE);
   assert.deepEqual(await findApus(bin, {}), { ok: true, path: bin });
-  assert.equal((await findApus(path.join(dir, 'no-existe', EXE), {})).ok, false);
-  assert.equal((await findApus(`bin/${EXE}`, {})).ok, false);
+  assert.deepEqual(await findApus(gone, {}), { ok: false, problem: 'missing', path: gone });
+  assert.deepEqual(await findApus(`bin/${EXE}`, {}), { ok: false, problem: 'notAbsolute', path: `bin/${EXE}` });
 });
 
 test('findApus en Windows cambia apusw.exe por apus.exe y rechaza scripts', { skip: !windows }, async () => {
   const dir = await tempDir();
-  const apus = await fakeBinary(dir, 'apus.exe');
   const apusw = await fakeBinary(dir, 'apusw.exe');
+  assert.deepEqual(await findApus(apusw, {}), { ok: false, problem: 'windowBinary', path: apusw });
+  const apus = await fakeBinary(dir, 'apus.exe');
   assert.deepEqual(await findApus(apusw, {}), { ok: true, path: apus });
   const script = await fakeBinary(dir, 'apus.cmd');
-  assert.equal((await findApus(script, {})).ok, false);
+  assert.deepEqual(await findApus(script, {}), { ok: false, problem: 'notExe', path: script });
 });

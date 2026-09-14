@@ -4,98 +4,119 @@
 
 <h1 align="center">Apus affinis</h1>
 
-<p align="center">Tus repos se suben solos, y ves en qué andan sin salir de VS Code.</p>
+<p align="center">Your repositories push themselves, and you can see how each one is doing without leaving VS Code.</p>
+
+<p align="center"><a href="README.es.md">Leer en español</a></p>
 
 ---
 
-*Apus affinis* es el vencejo pequeño, pariente de *Apus*. Esta extensión es eso para [apus](https://github.com/miguelacaceresr/apus): lo lleva al editor. Vigila tus repos y, cuando dejás de tocarlos un rato, hace `add`, `commit` y `push` con apus. En la barra ves si hay cambios pendientes y a qué hora fue el último push.
+*Apus affinis* is the little swift, a relative of *Apus*. This extension brings [apus](https://github.com/miguelacaceresrios/Apus) into the editor. It watches your repositories, and when you stop touching one for a while, apus runs `add`, `commit` and `push`. The status bar shows whether there are changes waiting, how long until the next auto-commit, and when the last push happened.
 
-## Qué hace
+## Features
 
-- **Barra de estado.** El repo del editor activo muestra si está vigilado, cuántos cambios tiene sin subir y la hora del último push. Con un clic abrís el menú.
-- **Menú rápido.** Desde ahí podés vigilar o pausar el repo, subir ahora, ver los últimos commits automáticos y abrir las reglas.
-- **Vista Apus.** En la barra de actividad hay un renglón por repo, con su estado y acciones para vigilar, pausar o subir. El número del ícono cuenta cuántos repos tienen algo sin subir.
-- **Notificaciones.** Avisa cada auto-commit o solo los errores. Un error repetido no se vuelve a avisar.
-- **Multi-root.** Maneja un controlador por repo git, no por carpeta del workspace. Los repos anidados funcionan.
+- **Status bar.** Shows the apus icon with the state of the repository in the active editor:
 
-## Requisitos
+  | Status bar | Meaning |
+  |---|---|
+  | apus + `10:48` | Up to date; last push at 10:48. |
+  | apus + `3 · in 1:40` | 3 changes waiting; the next auto-commit runs in 1:40. |
+  | apus + pause + `2` | Paused, with 2 changes. |
+  | apus + spinning arrows | Pushing. |
+  | apus + warning, on a yellow background | Something needs your attention. |
 
-- [apus](https://github.com/miguelacaceresr/apus) 2.1 o superior, en el `PATH` o configurado en `apus.path`.
-- La extensión Git de VS Code, que ya viene incluida.
+  Hover for details and quick actions (pause, push now, auto-commits). Click to open the menu.
+- **Menu.** Watch or pause, push now, browse the latest auto-commits and open the rules.
+- **Apus view.** Adds its own icon to the activity bar. Each repository gets a row with its state, a live countdown and inline actions. The badge counts repositories with something unpushed.
+- **Notifications.** Choose every auto-commit, errors only, or nothing. A repeated error is not reported twice.
+- **Early warning.** If apus is missing, the status bar and the view tell you right away and offer to download or locate it. You don't find out on your first push.
+- **Get started guide.** A walkthrough on the Welcome page takes you from installing apus to your first watched repository.
+- **English and Spanish.** The extension follows VS Code's display language.
+- **Multi-root.** Works per git repository, not per workspace folder. Nested repositories work too.
 
-Si la extensión no encuentra apus, te ofrece elegir el binario. En Windows tiene que ser `apus.exe`: `apusw.exe` es la versión de ventana y muestra los errores en diálogos.
+## Requirements
 
-## Cómo funciona
+- [apus](https://github.com/miguelacaceresrios/Apus) 2.1 or later, on your `PATH` or set in `apus.path`.
+- VS Code's built-in Git extension.
 
-La extensión no reimplementa git:
+If the extension can't find apus, it offers to download it or pick the binary. On Windows it must be `apus.exe`: `apusw.exe` is the windowed build and reports errors in dialog boxes.
 
-1. **Detecta los cambios** con la extensión Git de VS Code. Lo que está en `.gitignore` no cuenta.
-2. **Espera** a que el repo quede quieto `apus.watchInterval` segundos. Cada archivo guardado reinicia la espera.
-3. **Sube** llamando a `apus --message "…"`. El proceso se lanza sin shell, sin entrada estándar y con `GIT_TERMINAL_PROMPT=0`, así nunca se queda esperando una clave.
-4. **Marca** el commit con el trailer `Apus-Auto: true`. Así se reconoce desde la extensión, desde la terminal o desde cualquier otra herramienta:
+## How it works
+
+The extension does not reimplement git:
+
+1. **Detects changes** through VS Code's built-in Git extension, so anything in `.gitignore` doesn't count.
+2. **Waits** until the repository has been quiet for `apus.watchInterval` seconds. Every save restarts the wait.
+3. **Pushes** by running `apus --message "…"`. The binary is spawned without a shell, with stdin closed and `GIT_TERMINAL_PROMPT=0`, so it can never hang waiting for a password.
+4. **Marks** each commit with the trailer `Apus-Auto: true`, so auto-commits can be recognized from the extension, the terminal or any other tool:
 
    ```bash
    git log --grep='^Apus-Auto: true$'
    ```
 
-La hora del último push sale del reflog de la rama remota. La extensión no guarda ningún archivo propio: todo lo que muestra lo lee de git.
+The time of the last push comes from the remote-tracking branch's reflog. The extension keeps no state files of its own: everything it shows is read from git.
 
-## Configuración
+## Settings
 
-| Ajuste | Por defecto | Qué hace |
+| Setting | Default | What it does |
 |---|---|---|
-| `apus.autoStart` | `false` | Vigila los repos apenas se abren. Apagado, cada repo se activa a mano. |
-| `apus.watchInterval` | `120` | Segundos sin cambios antes del auto-commit. |
-| `apus.minInterval` | `300` | Mínimo de segundos entre dos auto-commits del mismo repo. |
-| `apus.ignorePatterns` | `[]` | Globs cuyos cambios no disparan un auto-commit, como `*.log` o `docs/**`. |
-| `apus.messageTemplate` | `chore: auto-commit {date}` | Mensaje de los auto-commits. |
-| `apus.notifications` | `all` | Qué avisar: `all`, `errors` u `off`. |
-| `apus.logSize` | `20` | Cuántos commits automáticos listar. |
-| `apus.path` | *(vacío)* | Ruta al binario de apus. Vacío: lo busca en el `PATH`. |
+| `apus.autoStart` | `false` | Watch repositories as soon as they open. When off, each repository is watched by hand. |
+| `apus.watchInterval` | `120` | Seconds without new changes before auto-committing. |
+| `apus.minInterval` | `300` | Minimum seconds between two auto-commits of the same repository. |
+| `apus.ignorePatterns` | `[]` | Globs whose changes don't trigger an auto-commit, like `*.log` or `docs/**`. |
+| `apus.messageTemplate` | `chore: auto-commit {date}` | Auto-commit message. |
+| `apus.notifications` | `all` | What to notify: `all`, `errors` or `off`. |
+| `apus.logSize` | `20` | How many auto-commits to list. |
+| `apus.path` | *(empty)* | Path to the apus binary. Empty: search the `PATH`. |
 
-`apus.ignorePatterns` decide **cuándo** subir, no **qué** se sube. Si hay otros cambios, apus hace `add -A` y los patrones ignorados entran igual. Para dejar archivos fuera de git, usá `.gitignore`.
+`apus.ignorePatterns` decides **when** to push, not **what** gets pushed. If there are other changes, apus runs `add -A` and the ignored files go in too. To keep files out of git, use `.gitignore`.
 
-## Cuidados
+## Safety
 
-- **Nunca hace auto-commit** si hay conflictos sin resolver, si `HEAD` está desprendido o si el workspace no es confiable.
-- **Dos ventanas sobre el mismo repo no suben a la vez.** Hay un candado en `.git/apus.lock`, y el mínimo entre auto-commits se calcula desde git, así que vale entre ventanas.
-- **`apus.path` solo se configura a nivel máquina.** Un repo clonado no puede traer en su `.vscode/settings.json` una ruta a otro ejecutable.
-- **Vigilar viene apagado.** Un push automático tiene que ser una decisión tuya, repo por repo.
+- **No auto-commit** while there are unresolved conflicts, `HEAD` is detached or the workspace is untrusted.
+- **Two windows on the same repository never push at once.** A lock lives in `.git/apus.lock`, and the minimum interval is computed from git, so it holds across windows.
+- **`apus.path` is machine-scoped only.** A cloned repository can't point it at another executable from its `.vscode/settings.json`.
+- **Watching is off by default.** Pushing on its own should be your call, one repository at a time.
 
-## Desarrollo
+## Development
 
 ```
 apus-affinis/
 ├── src/
-│   ├── extension.ts        arranque: conecta las piezas
-│   ├── commands.ts         comandos
-│   ├── config.ts           lectura validada de apus.*
-│   ├── apusBinary.ts       dónde está apus y qué hacer si no está
-│   ├── core/               sin dependencias de VS Code, con pruebas
-│   │   ├── apus.ts         llamada a apus y lectura de su salida
-│   │   ├── binary.ts       búsqueda del binario
-│   │   ├── git.ts          commits automáticos, último push, URL del remoto
+│   ├── extension.ts        activation: wires the pieces together
+│   ├── commands.ts
+│   ├── config.ts           validated apus.* settings
+│   ├── apusBinary.ts       where apus is, and what to do when it isn't
+│   ├── core/               no VS Code imports, unit tested
+│   │   ├── apus.ts         running apus and reading its output
+│   │   ├── binary.ts       finding the binary
+│   │   ├── git.ts          auto-commits, last push, remote URL
 │   │   ├── glob.ts         apus.ignorePatterns
-│   │   ├── lock.ts         candado entre procesos
-│   │   ├── process.ts      procesos sin shell
-│   │   ├── scheduler.ts    cuándo volar
-│   │   └── time.ts
-│   ├── git/api.ts          API de la extensión Git de VS Code
-│   ├── repos/              un controlador por repo, y el registro de todos
-│   └── ui/                 barra de estado, vista, menú y notificaciones
-├── test/unit/              pruebas de core/ con node:test
-└── images/                 ícono del Marketplace y de la barra de actividad
+│   │   ├── lock.ts         cross-process lock
+│   │   ├── process.ts      shell-free processes
+│   │   ├── scheduler.ts    when to push
+│   │   └── time.ts         localized times and countdowns
+│   ├── git/api.ts          VS Code's Git extension API
+│   ├── repos/              one controller per repository, and the registry
+│   └── ui/                 status bar, view, menu, notifications, texts
+├── l10n/                   runtime translations
+├── package.nls*.json       manifest translations
+├── media/walkthrough/      theme-aware illustrations for the guide
+├── images/                 Marketplace icon, activity bar icon, icon font
+├── scripts/icons.mjs       builds the icons from the apus shape
+└── test/unit/              node:test
 ```
 
 ```bash
 npm install
-npm test               # typecheck de las pruebas + node:test
-npm run compile        # typecheck + bundle con esbuild en dist/
-npm run install-ext    # empaqueta el .vsix y lo instala en tu VS Code
+npm test               # core unit tests + translation coverage
+npm run compile        # typecheck + esbuild bundle into dist/
+npm run l10n           # re-export strings after adding a message
+npm run icons          # rebuild activity.svg and apus-icons.woff
+npm run install-ext    # package the .vsix and install it into VS Code
 ```
 
-Con **F5** se abre una ventana de VS Code con la extensión cargada desde el código.
+Press **F5** to open a VS Code window with the extension loaded from source.
 
-## Licencia
+## License
 
 [MIT](LICENSE)

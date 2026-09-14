@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ApusBinary } from './apusBinary';
+import { APUS_DOWNLOAD_URL, type ApusBinary } from './apusBinary';
 import type { Registry } from './repos/registry';
 import type { RepoController } from './repos/repoController';
 import { showAutoCommits, showMenu } from './ui/menu';
@@ -10,8 +10,8 @@ export function registerCommands(
   binary: ApusBinary,
   log: vscode.LogOutputChannel,
 ): void {
-  // Los comandos que actúan sobre un repo lo reciben de la vista o del menú; desde
-  // la paleta, usan el del editor o preguntan.
+  // Los comandos que actúan sobre un repo lo reciben de la vista, del menú o de
+  // un tooltip; desde la paleta, usan el del editor o preguntan.
   const onRepo = (fn: (repo: RepoController) => unknown) => async (arg?: unknown) => {
     const repo = await registry.resolve(arg);
     if (repo) {
@@ -26,7 +26,7 @@ export function registerCommands(
     'apus.pause': onRepo((repo) => repo.setWatching(false)),
     'apus.pushNow': onRepo((repo) =>
       vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Window, title: `apus: subiendo ${repo.name}` },
+        { location: vscode.ProgressLocation.Window, title: vscode.l10n.t('apus: pushing {0}', repo.name) },
         () => repo.pushNow(),
       ),
     ),
@@ -34,6 +34,10 @@ export function registerCommands(
     'apus.openSettings': () =>
       vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${context.extension.id}`),
     'apus.selectBinary': () => binary.choose(),
+    'apus.fixBinary': () => binary.offerFix(),
+    'apus.downloadApus': () => vscode.env.openExternal(vscode.Uri.parse(APUS_DOWNLOAD_URL)),
+    'apus.getStarted': () =>
+      vscode.commands.executeCommand('workbench.action.openWalkthrough', `${context.extension.id}#apus.gettingStarted`, false),
     'apus.showOutput': () => log.show(),
   };
 

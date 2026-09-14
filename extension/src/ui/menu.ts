@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { formatClock, formatRelative } from '../core/time';
+import { formatRelative } from '../core/time';
 import type { Registry } from '../repos/registry';
 import type { RepoController } from '../repos/repoController';
-import { duration, summary } from './describe';
+import { summary } from './describe';
+import { clock, duration, locale } from './text';
 
 interface Action extends vscode.QuickPickItem {
   run?: () => unknown;
@@ -14,36 +15,37 @@ export async function showMenu(registry: Registry, repo: RepoController): Promis
   const items: Action[] = [
     repo.watching
       ? {
-        label: '$(eye-closed) Pausar la vigilancia',
-        detail: 'Deja de hacer auto-commits en este repo.',
+        label: `$(eye-closed) ${vscode.l10n.t('Pause watching')}`,
+        detail: vscode.l10n.t('Stop auto-committing this repository.'),
         run: () => repo.setWatching(false),
       }
       : {
-        label: '$(eye) Vigilar este repo',
-        detail: `Auto-commit tras ${duration(quietMs)} sin cambios, como mucho uno cada ${duration(minGapMs)}.`,
+        label: `$(eye) ${vscode.l10n.t('Watch this repository')}`,
+        detail: vscode.l10n.t('Auto-commit after {0} without changes, at most once every {1}.', duration(quietMs), duration(minGapMs)),
         run: () => repo.setWatching(true),
       },
     {
-      label: '$(cloud-upload) Subir ahora',
-      detail: 'add + commit + push con apus, sin esperar.',
+      label: `$(cloud-upload) ${vscode.l10n.t('Push now')}`,
+      detail: vscode.l10n.t('add + commit + push with apus, without waiting.'),
       run: () => vscode.commands.executeCommand('apus.pushNow', repo),
     },
     {
-      label: '$(history) Commits automáticos',
-      detail: `Los últimos ${logSize}.`,
+      label: `$(history) ${vscode.l10n.t('Auto-commits')}`,
+      detail: vscode.l10n.t('The last {0}.', logSize),
       run: () => showAutoCommits(repo),
     },
     {
-      label: '$(settings-gear) Reglas',
-      detail: 'Intervalos, patrones ignorados, mensaje y notificaciones.',
+      label: `$(settings-gear) ${vscode.l10n.t('Rules')}`,
+      detail: vscode.l10n.t('Intervals, ignored patterns, message and notifications.'),
       run: () => vscode.commands.executeCommand('apus.openSettings'),
     },
     { label: '', kind: vscode.QuickPickItemKind.Separator },
-    { label: '$(output) Registro', run: () => vscode.commands.executeCommand('apus.showOutput') },
+    { label: `$(output) ${vscode.l10n.t('Log')}`, run: () => vscode.commands.executeCommand('apus.showOutput') },
+    { label: `$(book) ${vscode.l10n.t('Get started')}`, run: () => vscode.commands.executeCommand('apus.getStarted') },
   ];
   if (registry.all.length > 1) {
     items.push({
-      label: '$(repo) Otro repo…',
+      label: `$(repo) ${vscode.l10n.t('Another repository…')}`,
       run: async () => {
         const other = await registry.pick();
         if (other) {
@@ -63,7 +65,7 @@ export async function showMenu(registry: Registry, repo: RepoController): Promis
 export async function showAutoCommits(repo: RepoController): Promise<void> {
   const commits = await repo.autoCommits();
   if (commits.length === 0) {
-    void vscode.window.showInformationMessage(`apus · ${repo.name}: todavía no hay commits automáticos.`);
+    void vscode.window.showInformationMessage(vscode.l10n.t('apus · {0}: no auto-commits yet.', repo.name));
     return;
   }
   const web = repo.browseUrl();
@@ -71,12 +73,12 @@ export async function showAutoCommits(repo: RepoController): Promise<void> {
     commits.map((commit) => ({
       label: `$(git-commit) ${commit.subject}`,
       description: commit.short,
-      detail: `${formatClock(commit.at)} · ${formatRelative(commit.at)}`,
+      detail: `${clock(commit.at)} · ${formatRelative(commit.at, locale())}`,
       commit,
     })),
     {
-      title: `apus · ${repo.name} · commits automáticos`,
-      placeHolder: web ? 'Elegí uno para verlo en el navegador' : 'Elegí uno para copiar su hash',
+      title: vscode.l10n.t('apus · {0} · auto-commits', repo.name),
+      placeHolder: web ? vscode.l10n.t('Pick one to open it in the browser') : vscode.l10n.t('Pick one to copy its hash'),
       matchOnDescription: true,
     },
   );
@@ -87,6 +89,6 @@ export async function showAutoCommits(repo: RepoController): Promise<void> {
     await vscode.env.openExternal(vscode.Uri.parse(`${web}/commit/${picked.commit.hash}`));
   } else {
     await vscode.env.clipboard.writeText(picked.commit.hash);
-    vscode.window.setStatusBarMessage(`apus: hash ${picked.commit.short} copiado`, 3000);
+    vscode.window.setStatusBarMessage(vscode.l10n.t('apus: copied {0}', picked.commit.short), 3000);
   }
 }

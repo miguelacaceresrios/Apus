@@ -2,7 +2,12 @@
 !dist/extension.js
 !images/icon.png
 !images/activity.svg
+!images/apus-icons.woff
+!media/walkthrough/*.svg
+!l10n/bundle.l10n.*.json
 !package.json
+!package.nls.json
+!package.nls.*.json
 !README.md
 !CHANGELOG.md
 !LICENSE

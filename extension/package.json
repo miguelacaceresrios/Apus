@@ -1,8 +1,8 @@
 {
   "name": "apus-affinis",
   "displayName": "Apus affinis",
-  "description": "Auto-commit y push con apus, con el estado de cada repo a la vista en VS Code.",
-  "version": "0.1.0",
+  "description": "%description%",
+  "version": "0.2.0",
   "publisher": "miguelacaceresr",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -12,8 +12,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/miguelacaceresr/apus-affinis"
+    "url": "https://github.com/miguelacaceresrios/apus-affinis"
   },
+  "bugs": {
+    "url": "https://github.com/miguelacaceresrios/apus-affinis/issues"
+  },
+  "homepage": "https://github.com/miguelacaceresrios/apus-affinis#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -42,17 +46,27 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
+  "l10n": "./l10n",
   "capabilities": {
     "virtualWorkspaces": false,
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "En un workspace no confiable apus no hace auto-commits; subir a mano sigue disponible.",
+      "description": "%untrustedWorkspaces%",
       "restrictedConfigurations": [
         "apus.autoStart"
       ]
     }
   },
   "contributes": {
+    "icons": {
+      "apus-logo": {
+        "description": "%icons.logo%",
+        "default": {
+          "fontPath": "images/apus-icons.woff",
+          "fontCharacter": "\\E001"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -66,7 +80,7 @@
       "apus": [
         {
           "id": "apus.repos",
-          "name": "Repos",
+          "name": "%views.repos%",
           "icon": "images/activity.svg",
           "contextualTitle": "Apus"
         }
@@ -75,60 +89,141 @@
     "viewsWelcome": [
       {
         "view": "apus.repos",
-        "contents": "No hay repos git abiertos en esta ventana.\n[Abrir carpeta](command:vscode.openFolder)"
+        "when": "apus.binaryMissing",
+        "contents": "%viewsWelcome.binaryMissing%"
+      },
+      {
+        "view": "apus.repos",
+        "when": "!apus.binaryMissing",
+        "contents": "%viewsWelcome.noRepos%"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "apus.gettingStarted",
+        "title": "%walkthrough.title%",
+        "description": "%walkthrough.description%",
+        "steps": [
+          {
+            "id": "connect",
+            "title": "%walkthrough.connect.title%",
+            "description": "%walkthrough.connect.description%",
+            "media": {
+              "svg": "media/walkthrough/connect.svg",
+              "altText": "%walkthrough.connect.alt%"
+            },
+            "completionEvents": [
+              "onContext:apus.binaryFound"
+            ]
+          },
+          {
+            "id": "watch",
+            "title": "%walkthrough.watch.title%",
+            "description": "%walkthrough.watch.description%",
+            "media": {
+              "svg": "media/walkthrough/watch.svg",
+              "altText": "%walkthrough.watch.alt%"
+            },
+            "completionEvents": [
+              "onContext:apus.watchingAny"
+            ]
+          },
+          {
+            "id": "status",
+            "title": "%walkthrough.status.title%",
+            "description": "%walkthrough.status.description%",
+            "media": {
+              "svg": "media/walkthrough/status.svg",
+              "altText": "%walkthrough.status.alt%"
+            },
+            "completionEvents": [
+              "onCommand:apus.menu"
+            ]
+          },
+          {
+            "id": "rules",
+            "title": "%walkthrough.rules.title%",
+            "description": "%walkthrough.rules.description%",
+            "media": {
+              "svg": "media/walkthrough/rules.svg",
+              "altText": "%walkthrough.rules.alt%"
+            },
+            "completionEvents": [
+              "onCommand:apus.openSettings"
+            ]
+          }
+        ]
       }
     ],
     "commands": [
       {
         "command": "apus.menu",
-        "title": "Menú",
+        "title": "%commands.menu%",
         "category": "Apus",
         "icon": "$(list-selection)"
       },
       {
         "command": "apus.toggleWatch",
-        "title": "Vigilar o pausar un repo",
+        "title": "%commands.toggleWatch%",
         "category": "Apus",
         "icon": "$(eye)"
       },
       {
         "command": "apus.watch",
-        "title": "Vigilar",
+        "title": "%commands.watch%",
         "category": "Apus",
         "icon": "$(eye)"
       },
       {
         "command": "apus.pause",
-        "title": "Pausar",
+        "title": "%commands.pause%",
         "category": "Apus",
         "icon": "$(eye-closed)"
       },
       {
         "command": "apus.pushNow",
-        "title": "Subir ahora",
+        "title": "%commands.pushNow%",
         "category": "Apus",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "apus.showLog",
-        "title": "Commits automáticos",
+        "title": "%commands.showLog%",
         "category": "Apus",
         "icon": "$(history)"
       },
       {
         "command": "apus.openSettings",
-        "title": "Reglas",
+        "title": "%commands.openSettings%",
         "category": "Apus",
         "icon": "$(settings-gear)"
       },
       {
         "command": "apus.selectBinary",
-        "title": "Elegir el binario de apus…",
+        "title": "%commands.selectBinary%",
         "category": "Apus"
       },
       {
+        "command": "apus.fixBinary",
+        "title": "%commands.fixBinary%",
+        "category": "Apus",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "apus.downloadApus",
+        "title": "%commands.downloadApus%",
+        "category": "Apus",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "apus.getStarted",
+        "title": "%commands.getStarted%",
+        "category": "Apus",
+        "icon": "$(book)"
+      },
+      {
         "command": "apus.showOutput",
-        "title": "Mostrar registro",
+        "title": "%commands.showOutput%",
         "category": "Apus",
         "icon": "$(output)"
       }
@@ -154,6 +249,16 @@
           "command": "apus.showOutput",
           "when": "view == apus.repos",
           "group": "navigation@2"
+        },
+        {
+          "command": "apus.getStarted",
+          "when": "view == apus.repos",
+          "group": "more@1"
+        },
+        {
+          "command": "apus.selectBinary",
+          "when": "view == apus.repos",
+          "group": "more@2"
         }
       ],
       "view/item/context": [
@@ -186,21 +291,21 @@
           "type": "boolean",
           "default": false,
           "scope": "resource",
-          "markdownDescription": "Vigilar los repos apenas se abren. Apagado, cada repo se activa a mano desde el menú o la vista **Apus**."
+          "markdownDescription": "%config.autoStart%"
         },
         "apus.watchInterval": {
           "type": "number",
           "default": 120,
           "minimum": 5,
           "scope": "resource",
-          "markdownDescription": "Segundos sin cambios nuevos antes de hacer el auto-commit."
+          "markdownDescription": "%config.watchInterval%"
         },
         "apus.minInterval": {
           "type": "number",
           "default": 300,
           "minimum": 0,
           "scope": "resource",
-          "markdownDescription": "Mínimo de segundos entre dos auto-commits del mismo repo, aunque haya varias ventanas abiertas."
+          "markdownDescription": "%config.minInterval%"
         },
         "apus.ignorePatterns": {
           "type": "array",
@@ -209,13 +314,13 @@
           },
           "default": [],
           "scope": "resource",
-          "markdownDescription": "Globs, relativos a la raíz del repo, cuyos cambios **no disparan** un auto-commit (por ejemplo `*.log` o `docs/**`). Si hay otros cambios, se suben todos juntos: para dejar archivos fuera de git usá `.gitignore`."
+          "markdownDescription": "%config.ignorePatterns%"
         },
         "apus.messageTemplate": {
           "type": "string",
           "default": "chore: auto-commit {date}",
           "scope": "resource",
-          "markdownDescription": "Mensaje de los auto-commits. `{date}` se reemplaza por la fecha y hora. Al final se agrega el trailer `Apus-Auto: true` para reconocerlos después."
+          "markdownDescription": "%config.messageTemplate%"
         },
         "apus.notifications": {
           "type": "string",
@@ -225,13 +330,13 @@
             "off"
           ],
           "enumDescriptions": [
-            "Avisar cada auto-commit y cada error.",
-            "Avisar solo cuando algo falla.",
-            "No avisar nunca: el estado queda en la barra y en la vista."
+            "%config.notifications.all%",
+            "%config.notifications.errors%",
+            "%config.notifications.off%"
           ],
           "default": "all",
           "scope": "window",
-          "markdownDescription": "Qué notificaciones mostrar."
+          "markdownDescription": "%config.notifications%"
         },
         "apus.logSize": {
           "type": "number",
@@ -239,13 +344,13 @@
           "minimum": 1,
           "maximum": 200,
           "scope": "resource",
-          "markdownDescription": "Cuántos commits automáticos listar."
+          "markdownDescription": "%config.logSize%"
         },
         "apus.path": {
           "type": "string",
           "default": "",
           "scope": "machine",
-          "markdownDescription": "Ruta al binario de apus (`apus.exe` en Windows). Vacío: se busca en el `PATH`."
+          "markdownDescription": "%config.path%"
         }
       }
     }
@@ -257,14 +362,19 @@
     "watch": "node esbuild.mjs --watch",
     "package": "npm run check && node esbuild.mjs --production",
     "test": "tsc -p tsconfig.test.json && node --test \"out/test/**/*.test.js\"",
+    "l10n": "l10n-dev export --outDir ./l10n ./src",
+    "icons": "node scripts/icons.mjs",
     "vsix": "vsce package --no-dependencies --out apus-affinis.vsix",
     "install-ext": "npm run vsix && code --install-extension apus-affinis.vsix --force"
   },
   "devDependencies": {
     "@types/node": "^22.20.2",
     "@types/vscode": "~1.90.0",
+    "@vscode/l10n-dev": "^0.0.35",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
+    "svg2ttf": "^6.1.0",
+    "ttf2woff": "^3.0.0",
     "typescript": "~5.9"
   }
 }

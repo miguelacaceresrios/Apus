@@ -45,7 +45,7 @@ export function globToRegExp(glob: string): RegExp {
     }
   }
   if (braces > 0) {
-    throw new Error(`glob con llaves sin cerrar: ${glob}`);
+    throw new Error(`unclosed brace in glob: ${glob}`);
   }
   return new RegExp('^' + re + '(?:/.*)?$');
 }

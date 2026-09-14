@@ -41,7 +41,7 @@ export async function lastPushAt(git: string, root: string, upstream: string): P
 export async function absoluteGitDir(git: string, root: string): Promise<string> {
   const r = await runProcess(git, ['rev-parse', '--absolute-git-dir'], { cwd: root });
   if (r.code !== 0) {
-    throw new Error(r.stderr.trim() || `git rev-parse terminó con código ${r.code}`);
+    throw new Error(r.stderr.trim() || `git rev-parse exited with code ${r.code}`);
   }
   return r.stdout.trim();
 }
