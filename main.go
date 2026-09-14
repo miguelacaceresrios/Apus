@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const version = "1.2.0"
+const version = "2.1.0"
 
 var (
 	quiet  bool
@@ -57,8 +57,16 @@ func warnMsg(s string) {
 	fmt.Fprintln(os.Stderr, paint("33", "!")+" "+s)
 }
 
-// dieMsg imprime el error y devuelve el código de salida.
+// dieMsg imprime el error y devuelve el código de salida. En modo ventana no hay
+// terminal, así que además lo muestra en un cuadro de diálogo.
 func dieMsg(code int, msg, hint string) int {
+	if guiMode() {
+		text := msg
+		if hint != "" {
+			text += "\n\n" + hint
+		}
+		alert("apus", text)
+	}
 	fmt.Fprintln(os.Stderr, paint("31", "✖")+" "+msg)
 	if hint != "" {
 		note(hint)
@@ -84,12 +92,13 @@ const usageText = `apus — add + commit + push en un solo vuelo.
 
 USO
   apus [opciones] [mensaje]
-  apus ui [--port N] [--dir RUTA]     interfaz visual en el navegador
+  apus ui [--port N] [--dir RUTA]     ventana: elegís carpeta y URL, y sube todo
+     --quit-on-close                  se apaga al cerrar la ventana (para atajos)
+     --dir                            carpeta donde arranca el selector
   apus status [--json] [--dir RUTA]   estado de tus repos
 
 OPCIONES
   -m, --message <msg>   Mensaje de commit (igual que el argumento posicional).
-  -l, --link            Elegir/cambiar el repo remoto antes de subir.
   -n, --dry-run         Muestra los comandos sin ejecutar nada.
   -q, --quiet           Silencia la salida de apus.
   -h, --help            Esta ayuda.
@@ -99,11 +108,10 @@ MENSAJE
   Sin mensaje, apus lo genera desde la plantilla por defecto:
       chore: actualización {date}
 
-VINCULACIÓN
-  Si la carpeta no es un repo, apus ofrece iniciarlo. Si el repo no tiene
-  remoto (o si pasás --link), apus te deja elegir uno de los repos de tu
-  cuenta de GitHub (necesita 'gh' con sesión), crear uno nuevo, o pegar una
-  URL / usuario/repo. Después publica la rama con 'git push -u origin <rama>'.
+REMOTO
+  apus no crea repos ni configura remotos: eso lo hacés vos, una vez, con
+  'git remote add origin <url>'. Si falta, apus te lo dice y no toca nada.
+  Lo que sí hace solo es publicar la rama la primera vez ('git push -u').
 
 VARIABLES DE ENTORNO
   APUS_MESSAGE_TEMPLATE   plantilla del mensaje; {date} se reemplaza por la fecha.
@@ -115,7 +123,7 @@ VARIABLES DE ENTORNO
 
 CÓDIGOS DE SALIDA
   0  todo bien (incluye "no había nada que hacer")
-  1  error de repo (HEAD desprendido, commit rechazado, vinculación cancelada)
+  1  error de repo (sin remoto, HEAD desprendido, commit rechazado por un hook)
   2  uso incorrecto
   3  el push falló`
 
@@ -128,6 +136,10 @@ func main() {
 }
 
 func run(args []string) int {
+	// apusw.exe con doble clic, sin argumentos: abre la ventana.
+	if guiMode() && len(args) == 0 {
+		args = []string{"ui"}
+	}
 	if len(args) > 0 {
 		switch args[0] {
 		case "ui":
@@ -146,7 +158,6 @@ func run(args []string) int {
 	var (
 		message    string
 		messageSet bool
-		link       bool
 		dryRun     bool
 		rest       []string
 	)
@@ -167,8 +178,6 @@ func run(args []string) int {
 				message, messageSet = args[i], true
 			case strings.HasPrefix(a, "--message="):
 				message, messageSet = strings.TrimPrefix(a, "--message="), true
-			case a == "-l" || a == "--link":
-				link = true
 			case a == "-n" || a == "--dry-run":
 				dryRun = true
 			case a == "-q" || a == "--quiet":
@@ -197,7 +206,6 @@ func run(args []string) int {
 			return dieMsg(codeUsage, "demasiados argumentos: '"+rest[1]+"'", "¿le faltan comillas al mensaje?")
 		}
 	}
-	_ = messageSet
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -232,20 +240,6 @@ func run(args []string) int {
 		return dieMsg(codeRepo, err.Error(), "")
 	}
 
-	if link {
-		if !canPrompt() {
-			return dieMsg(codeRepo, "--link necesita una terminal interactiva", "")
-		}
-		if _, err := linkInteractive(repo, dryRun); err != nil {
-			return dieErr(err)
-		}
-		// Después de vincular, el estado cambió: lo volvemos a leer.
-		if fresh, err := LoadRepo(repo.Path); err == nil {
-			fresh.Files = repo.Files
-			repo = fresh
-		}
-	}
-
 	flow := &Flow{
 		DryRun: dryRun,
 		Say: func(kind, text string) {
@@ -259,14 +253,8 @@ func run(args []string) int {
 			}
 		},
 	}
-	if canPrompt() {
-		flow.Link = func(r *Repo) (string, error) {
-			warnMsg("este repo todavía no tiene remoto")
-			return linkInteractive(r, dryRun)
-		}
-	}
 
-	res, err := flow.Push(repo, message, nil)
+	res, err := flow.Push(repo, message)
 	if err != nil {
 		return dieErr(err)
 	}

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>apus</title>
+<style>
+:root {
+	color-scheme: light dark;
+	--bg: #faf9f7;
+	--field: #ffffff;
+	--line: #dcd7cf;
+	--ink: #1b1a18;
+	--dim: #8a8379;
+	--accent: #c2571f;
+	--on-accent: #fff;
+	--bad: #b03636;
+	--ok: #2d7a52;
+	--warn: #96690f;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #161518;
+		--field: #1e1d22;
+		--line: #34323a;
+		--ink: #eae7e2;
+		--dim: #837d74;
+		--accent: #ef8a4b;
+		--on-accent: #1a1004;
+		--bad: #e57b7b;
+		--ok: #5fc08d;
+		--warn: #d7ae57;
+	}
+}
+* { box-sizing: border-box; }
+body {
+	margin: 0; padding: 26px 22px;
+	font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+	background: var(--bg); color: var(--ink);
+	-webkit-font-smoothing: antialiased;
+}
+main { max-width: 480px; margin: 0 auto; }
+
+h1 { display: flex; align-items: center; gap: 8px; margin: 0 0 22px; font-size: 16px; font-weight: 600; }
+h1 svg { width: 16px; height: 16px; fill: var(--accent); }
+
+label { display: block; margin: 0 0 6px; font-size: 12.5px; color: var(--dim); }
+.row { display: flex; gap: 8px; }
+input {
+	width: 100%; min-width: 0; padding: 9px 11px;
+	font: 13px/1.4 "Cascadia Mono", Consolas, ui-monospace, monospace; color: inherit;
+	background: var(--field); border: 1px solid var(--line); border-radius: 7px;
+}
+input:focus { outline: none; border-color: var(--accent); }
+input::placeholder { color: var(--dim); font-family: "Segoe UI", system-ui, sans-serif; }
+
+.hint { min-height: 18px; margin: 5px 0 16px; font-size: 12.5px; color: var(--dim); }
+.hint.bad { color: var(--bad); }
+.hint.warn { color: var(--warn); }
+
+button {
+	font: inherit; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 9px 14px;
+	border: 1px solid var(--line); background: var(--field); color: var(--ink); flex: none;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button.go { width: 100%; border: 0; background: var(--accent); color: var(--on-accent); padding: 11px; }
+button.go:hover:not(:disabled) { filter: brightness(1.07); }
+button:disabled { opacity: .45; cursor: default; }
+
+#st { margin-top: 14px; font-size: 13px; min-height: 20px; word-break: break-word; }
+#st.ok { color: var(--ok); }
+#st.bad { color: var(--bad); }
+#st small { display: block; margin-top: 3px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+	<h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8C9.8 5.6 6.4 9.6 1.4 14.6C2.6 15.4 3.4 16.2 4.6 17.4C7.4 14.6 9.6 12.4 12 10.4C14.4 12.4 16.6 14.6 19.4 17.4C20.6 16.2 21.4 15.4 22.6 14.6C17.6 9.6 14.2 5.6 12 2.8Z"/></svg>apus</h1>
+
+	<label for="dir">Carpeta</label>
+	<div class="row">
+		<input id="dir" placeholder="elegí la carpeta del proyecto" spellcheck="false" autocomplete="off">
+		<button id="pick">Elegir…</button>
+	</div>
+	<div class="hint" id="dirHint"></div>
+
+	<label for="url">URL del repo</label>
+	<input id="url" placeholder="https://github.com/usuario/repo.git" spellcheck="false" autocomplete="off">
+	<div class="hint" id="urlHint"></div>
+
+	<button class="go" id="send" disabled>Subir</button>
+	<div id="st"></div>
+</main>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const api = async (path, body) => {
+	const res = await fetch(path, {
+		method: body ? "POST" : "GET",
+		headers: { "X-Apus": "1", "Content-Type": "application/json" },
+		body: body ? JSON.stringify(body) : undefined,
+	});
+	const data = await res.json().catch(() => null);
+	if (!res.ok) throw new Error((data && data.error) || res.statusText);
+	return data;
+};
+
+let info = null;        // lo que sabemos de la carpeta elegida
+let urlAuto = false;    // la URL la puso apus (desde el origin), no la escribiste vos
+let busy = false;
+
+const guardado = {
+	get(k) { try { return localStorage.getItem("apus." + k) || ""; } catch { return ""; } },
+	set(k, v) { try { localStorage.setItem("apus." + k, v); } catch { /* sin almacenamiento */ } },
+};
+
+function hint(id, text, cls) {
+	const h = $(id);
+	h.textContent = text || "";
+	h.className = "hint" + (cls ? " " + cls : "");
+}
+
+// Al cambiar de carpeta: si ya tiene remoto, la URL pasa a ser la suya. Así nunca
+// se le pega por error la URL de la carpeta anterior.
+function aplicar(i) {
+	info = i;
+	if (!i || !i.dir) { hint("dirHint", ""); return refrescar(); }
+	if (!i.exists) hint("dirHint", "esa carpeta no existe", "bad");
+	else if (i.insideOf) hint("dirHint", "está dentro de otro repo (" + i.insideOf + "): elegí la raíz", "bad");
+	else if (!i.isRepo) hint("dirHint", "carpeta nueva: se convierte en repo al subir");
+	else hint("dirHint", "repo · " + (i.summary || ""));
+
+	if (i.remoteUrl) { $("url").value = i.remoteUrl; urlAuto = true; }
+	else if (urlAuto) { $("url").value = ""; urlAuto = false; }
+	refrescar();
+}
+
+function refrescar() {
+	const url = $("url").value.trim();
+	if (info && info.remoteUrl && url && url !== info.remoteUrl) {
+		hint("urlHint", "ojo: cambia el remoto de esta carpeta (hoy apunta a " + info.remoteUrl + ")", "warn");
+	} else {
+		hint("urlHint", "");
+	}
+	const lista = info && info.exists && !info.insideOf && url;
+	$("send").disabled = busy || !lista;
+}
+
+async function inspeccionar() {
+	const dir = $("dir").value.trim();
+	if (!dir) return aplicar(null);
+	try { aplicar(await api("/api/inspect?dir=" + encodeURIComponent(dir))); }
+	catch (e) { hint("dirHint", e.message, "bad"); }
+}
+
+$("pick").onclick = async () => {
+	$("pick").disabled = true;
+	try {
+		const r = await api("/api/pick?from=" + encodeURIComponent($("dir").value.trim()));
+		if (r.dir) { $("dir").value = r.dir; aplicar(r.inspect); }
+	} catch (e) {
+		hint("dirHint", e.message, "bad");
+	} finally {
+		$("pick").disabled = false;
+	}
+};
+
+$("dir").addEventListener("change", inspeccionar);
+$("dir").addEventListener("keydown", (e) => { if (e.key === "Enter") inspeccionar(); });
+$("url").addEventListener("input", () => { urlAuto = false; refrescar(); });
+$("url").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("send").disabled) enviar(); });
+$("send").onclick = enviar;
+
+async function enviar() {
+	const dir = $("dir").value.trim(), url = $("url").value.trim();
+	const st = $("st");
+	busy = true;
+	refrescar();
+	$("send").textContent = "Subiendo…";
+	st.className = ""; st.textContent = "";
+	try {
+		const r = await api("/api/send", { dir, url });
+		if (r.error) {
+			st.className = "bad";
+			st.textContent = "✖ " + r.error;
+			if (r.hint) st.append(Object.assign(document.createElement("small"), { textContent: r.hint }));
+		} else {
+			st.className = "ok";
+			st.textContent = "✔ " + ((r.result && r.result.pushed) ? "subido: " : "") + (r.result.summary || "listo");
+			if (r.result.note) st.append(Object.assign(document.createElement("small"), { textContent: r.result.note }));
+			guardado.set("dir", dir);
+		}
+		aplicar(r.inspect);
+	} catch (e) {
+		st.className = "bad";
+		st.textContent = "✖ " + e.message;
+	} finally {
+		busy = false;
+		$("send").textContent = "Subir";
+		refrescar();
+	}
+}
+
+// La última carpeta que subiste queda puesta para la próxima.
+const ultima = guardado.get("dir");
+if (ultima) { $("dir").value = ultima; inspeccionar(); }
+
+// Mientras la ventana esté abierta, apus sigue vivo; al cerrarla se apaga (atajo).
+setInterval(() => api("/api/ping").catch(() => {}), 60000);
+addEventListener("pagehide", () => { try { navigator.sendBeacon("/api/bye"); } catch (e) { /* da igual */ } });
+</script>
+</body>
+</html>

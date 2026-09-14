@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: formato
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: vet
+        run: go vet ./...
+
+      - name: pruebas de Go
+        run: go test ./...
+
+      - name: compilar
+        run: |
+          ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
+          go build -trimpath -o "dist/apus$ext" .
+
+      - name: terminal (apus.sh)
+        run: scripts/test.sh
+
+      - name: terminal (binario)
+        run: APUS_IMPL=go scripts/test.sh

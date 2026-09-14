@@ -4,16 +4,14 @@
 #
 #   apus                      commit con mensaje autogenerado (fecha/hora)
 #   apus "fix: arreglo bug X" commit con mensaje propio
-#   apus --link               elegir/cambiar el repo remoto
 #
-# Encadena add + commit + push. Si la carpeta no es un repo, ofrece iniciarlo;
-# si no tiene remoto, te deja elegir uno de tu cuenta de GitHub (vía gh), crear
-# uno nuevo o pegar una URL. Evita commits vacíos y devuelve un código de salida
-# distinto de 0 si el push falla.
+# Encadena add + commit + push. Si la carpeta no es un repo, ofrece iniciarlo.
+# El remoto lo configurás vos con git; apus sólo publica la rama la primera vez.
+# Evita commits vacíos y devuelve un código de salida distinto de 0 si el push falla.
 
 set -euo pipefail
 
-APUS_VERSION="1.1.0"
+APUS_VERSION="2.1.0"
 
 # ─── salida ──────────────────────────────────────────────────────────────────
 
@@ -32,8 +30,6 @@ ok()   { (( QUIET )) || printf '%s\n' "${C_GREEN}✔${C_RESET} $*" >&2; }
 note() { (( QUIET )) || printf '%s\n' "${C_DIM}  $*${C_RESET}" >&2; }
 warn() { printf '%s\n' "${C_YELLOW}!${C_RESET} $*" >&2; }
 die()  { printf '%s\n' "${C_RED}✖${C_RESET} $1" >&2; exit "${2:-1}"; }
-
-have() { command -v "$1" >/dev/null 2>&1; }
 
 # Arma una línea de comando legible, entrecomillando sólo lo que hace falta.
 cmdline() {
@@ -57,21 +53,17 @@ run() {
 
 # ─── preguntas ───────────────────────────────────────────────────────────────
 
-# ¿Hay con quién hablar? Una terminal, una tty aunque stdin esté redirigido, o
-# algo del otro lado de un pipe. Con la entrada vacía (cron, hooks) no preguntamos.
+# ¿Hay con quién hablar? Una terminal, o alguien mandando respuestas por un pipe
+# (scripts, pruebas). Con la entrada vacía (cron, hooks) no preguntamos. Es el
+# mismo criterio que el binario.
 can_prompt() {
-	[[ -t 0 ]] && return 0
-	( : </dev/tty ) 2>/dev/null && return 0
-	[[ -p /dev/stdin ]]
+	[[ -t 0 || -p /dev/stdin ]]
 }
 
-# Lee una línea: primero de la terminal, y si no se puede abrir, de stdin.
+# Las respuestas se leen de stdin. No de /dev/tty: si llegan por un pipe, son esas
+# y no el teclado.
 prompt_read() {
-	local __var="$1"
-	if [[ -r /dev/tty ]] && IFS= read -r "$__var" 2>/dev/null </dev/tty; then
-		return 0
-	fi
-	IFS= read -r "$__var" || return 1
+	IFS= read -r "$1"
 }
 
 ask() { # ask VARIABLE "pregunta" ["default"]
@@ -92,168 +84,16 @@ confirm() { # confirm "pregunta" ["s"|"n"]
 	[[ "${ans,,}" == s* || "${ans,,}" == y* ]]
 }
 
-# ─── vinculación con el remoto ───────────────────────────────────────────────
-
-GH_PROTO='https'
-LINK_URL=''
-LINK_NAME=''
-_names=(); _metas=(); _urls=()
-
-gh_ready() { have gh && gh auth status >/dev/null 2>&1; }
-
-gh_protocol() {
-	local p=''
-	p="$(gh config get git_protocol 2>/dev/null || true)"
-	if [[ "$p" == ssh ]]; then printf 'ssh'; else printf 'https'; fi
-}
-
-# URL navegable (https, sin .git) para mostrar al final.
+# URL navegable (https, sin .git) para mostrar al final; vacío si es una ruta local.
 browse_url() {
 	local u="$1" host path
 	case "$u" in
 		git@*:*)     host="${u#git@}"; host="${host%%:*}"; path="${u#*:}"; u="https://$host/$path" ;;
 		ssh://git@*) u="https://${u#ssh://git@}" ;;
+		http://*|https://*) ;;
+		*) return 0 ;;
 	esac
 	printf '%s' "${u%.git}"
-}
-
-load_gh_repos() {
-	_names=(); _metas=(); _urls=()
-	local full vis url ssh upd
-	while IFS=$'\t' read -r full vis url ssh upd; do
-		[[ -n "$full" ]] || continue
-		_names+=("$full")
-		_metas+=("$(printf '%-8s %s' "${vis,,}" "${upd%%T*}")")
-		if [[ "$GH_PROTO" == ssh ]]; then _urls+=("$ssh"); else _urls+=("$url"); fi
-	done < <(gh repo list --limit 200 \
-		--json nameWithOwner,visibility,url,sshUrl,updatedAt \
-		--jq '.[] | [.nameWithOwner, .visibility, .url, .sshUrl, .updatedAt] | @tsv' 2>/dev/null || true)
-}
-
-create_gh_repo() { # create_gh_repo <nombre-sugerido>
-	local name='' vis='' owner=''
-	gh_ready || { warn "para crear el repo necesitás gh con sesión iniciada: 'gh auth login'"; return 1; }
-	ask name "nombre del repo nuevo" "$1" || return 1
-	[[ -n "$name" ]] || { warn "nombre vacío"; return 1; }
-	ask vis "visibilidad" "private" || return 1
-	case "${vis,,}" in
-		private|priv|p) vis=private ;;
-		public|pub|pu)  vis=public ;;
-		*) warn "visibilidad desconocida: '$vis' (private o public)"; return 1 ;;
-	esac
-	run gh repo create "$name" "--$vis" || { warn "gh no pudo crear el repo"; return 1; }
-	if [[ "$name" == */* ]]; then
-		owner="${name%%/*}"; name="${name#*/}"
-	else
-		owner="$(gh api user --jq .login 2>/dev/null || true)"
-		[[ -n "$owner" ]] || { warn "no pude averiguar tu usuario de GitHub"; return 1; }
-	fi
-	LINK_NAME="$owner/$name"
-	if [[ "$GH_PROTO" == ssh ]]; then
-		LINK_URL="git@github.com:$owner/$name.git"
-	else
-		LINK_URL="https://github.com/$owner/$name.git"
-	fi
-}
-
-ask_url() {
-	local input=''
-	ask input "URL del repo (o usuario/repo)" || return 1
-	[[ -n "$input" ]] || { warn "no ingresaste nada"; return 1; }
-	case "$input" in
-		*://*|git@*:*)
-			LINK_URL="$input" ;;
-		*)
-			if [[ "$input" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
-				if [[ "$GH_PROTO" == ssh ]]; then
-					LINK_URL="git@github.com:$input.git"
-				else
-					LINK_URL="https://github.com/$input.git"
-				fi
-			elif [[ -d "$input" ]]; then
-				LINK_URL="$input"   # un repo local también es un remoto válido
-			else
-				warn "no entiendo '$input': pegá una URL completa o usá usuario/repo"
-				return 1
-			fi ;;
-	esac
-	LINK_NAME="$(browse_url "$LINK_URL")"
-	LINK_NAME="${LINK_NAME#https://}"
-}
-
-choose_repo() { # choose_repo <nombre-de-la-carpeta>
-	local folder="$1" filter='' choice='' def='' i idx shown
-	for i in "${!_names[@]}"; do
-		if [[ "${_names[$i]##*/}" == "$folder" ]]; then def="$((i+1))"; break; fi
-	done
-	[[ -n "$def" ]] || def='n'
-
-	while :; do
-		printf '\n' >&2
-		if (( ${#_names[@]} )); then
-			printf '%s\n' "  ${C_BOLD}tus repos${C_RESET}${filter:+ ${C_DIM}(filtro: $filter)${C_RESET}}" >&2
-			shown=0
-			for i in "${!_names[@]}"; do
-				[[ -z "$filter" || "${_names[$i]}" == *"$filter"* ]] || continue
-				if (( shown >= 15 )); then
-					printf '%s\n' "  ${C_DIM}… hay más: filtrá escribiendo /texto${C_RESET}" >&2
-					break
-				fi
-				printf '  %3d) %-34s %s\n' "$((i+1))" "${_names[$i]}" "${C_DIM}${_metas[$i]}${C_RESET}" >&2
-				shown=$(( shown + 1 ))
-			done
-			(( shown )) || printf '%s\n' "  ${C_DIM}(ningún repo coincide con '$filter')${C_RESET}" >&2
-		fi
-		printf '%s\n' "    ${C_BOLD}n${C_RESET}) crear un repo nuevo en GitHub" >&2
-		printf '%s\n' "    ${C_BOLD}u${C_RESET}) pegar una URL" >&2
-		printf '%s\n' "    ${C_BOLD}q${C_RESET}) cancelar" >&2
-
-		ask choice "elegí" "$def" || return 1
-		case "$choice" in
-			/*)   filter="${choice#/}"; continue ;;
-			q|Q)  return 1 ;;
-			n|N)  if create_gh_repo "$folder"; then return 0; else warn "probá de nuevo"; continue; fi ;;
-			u|U)  if ask_url; then return 0; else warn "probá de nuevo"; continue; fi ;;
-			''|*[!0-9]*) warn "no entiendo '$choice'"; continue ;;
-			*)
-				idx=$(( choice - 1 ))
-				if (( idx >= 0 && idx < ${#_names[@]} )); then
-					LINK_URL="${_urls[$idx]}"; LINK_NAME="${_names[$idx]}"
-					return 0
-				fi
-				warn "el $choice no está en la lista"; continue ;;
-		esac
-	done
-}
-
-link_remote() {
-	local folder
-	folder="$(basename "$PWD")"
-	GH_PROTO="$(gh_protocol)"
-
-	if gh_ready; then
-		load_gh_repos
-	elif have gh; then
-		warn "gh está instalado pero sin sesión: corré 'gh auth login' para elegir de tus repos"
-	else
-		warn "gh no está instalado: por ahora sólo puedo tomar una URL (instalalo para elegir de tu cuenta)"
-	fi
-
-	LINK_URL=''; LINK_NAME=''
-	if (( ${#_names[@]} == 0 )) && ! gh_ready; then
-		ask_url || die "no elegiste ningún remoto"
-	else
-		choose_repo "$folder" || die "vinculación cancelada"
-	fi
-	[[ -n "$LINK_URL" ]] || die "no elegiste ningún remoto"
-
-	if git remote get-url origin >/dev/null 2>&1; then
-		run git remote set-url origin "$LINK_URL"
-	else
-		run git remote add origin "$LINK_URL"
-	fi
-	REMOTE='origin'
-	ok "origin → ${LINK_NAME:-$LINK_URL}"
 }
 
 # Elige el remoto para publicar una rama sin upstream. Escribe en $REMOTE en vez
@@ -269,9 +109,7 @@ resolve_remote() {
 			|| die "APUS_REMOTE apunta a '$APUS_REMOTE', que no es un remoto de este repo"
 		REMOTE="$APUS_REMOTE"
 	elif (( ${#remotes[@]} == 0 )); then
-		can_prompt || die "el repo no tiene remotos: agregá uno con 'git remote add origin <url>'"
-		warn "este repo todavía no tiene remoto"
-		link_remote
+		die "este repo no tiene remoto: agregalo con 'git remote add origin <url>'"
 	elif git remote get-url origin >/dev/null 2>&1; then
 		REMOTE='origin'
 	elif (( ${#remotes[@]} == 1 )); then
@@ -308,7 +146,6 @@ USO
 
 OPCIONES
   -m, --message <msg>   Mensaje de commit (igual que el argumento posicional).
-  -l, --link            Elegir/cambiar el repo remoto antes de subir.
   -n, --dry-run         Muestra los comandos sin ejecutar nada.
   -q, --quiet           Silencia la salida de apus (no la de git).
   -h, --help            Esta ayuda.
@@ -318,13 +155,10 @@ MENSAJE
   Sin mensaje, apus lo genera desde la plantilla por defecto:
       chore: actualización {date}
 
-VINCULACIÓN
-  Si la carpeta no es un repo, apus ofrece iniciarlo. Si el repo no tiene
-  remoto (o si pasás --link), apus te deja:
-    · elegir uno de los repos de tu cuenta de GitHub (necesita 'gh' con sesión),
-    · crear uno nuevo ahí mismo ('gh repo create'),
-    · o pegar una URL / usuario/repo.
-  Después publica la rama con 'git push -u origin <rama>'.
+REMOTO
+  apus no crea repos ni configura remotos: eso lo hacés vos, una vez, con
+  'git remote add origin <url>'. Lo que sí hace solo es publicar la rama la
+  primera vez, con 'git push -u'.
 
 VARIABLES DE ENTORNO
   APUS_MESSAGE_TEMPLATE   plantilla del mensaje; {date} se reemplaza por la fecha.
@@ -335,7 +169,7 @@ VARIABLES DE ENTORNO
 
 CÓDIGOS DE SALIDA
   0  todo bien (incluye "no había nada que hacer")
-  1  error de repo (HEAD desprendido, commit rechazado, vinculación cancelada)
+  1  error de repo (sin remoto, HEAD desprendido, commit rechazado por un hook)
   2  uso incorrecto
   3  el push falló
 USAGE
@@ -345,7 +179,6 @@ USAGE
 
 MESSAGE=''
 message_set=0
-LINK=0
 
 while (( $# )); do
 	case "$1" in
@@ -354,7 +187,6 @@ while (( $# )); do
 			MESSAGE="$2"; message_set=1; shift 2 ;;
 		--message=*)
 			MESSAGE="${1#*=}"; message_set=1; shift ;;
-		-l|--link)    LINK=1; shift ;;
 		-n|--dry-run) DRY_RUN=1; shift ;;
 		-q|--quiet)   QUIET=1; shift ;;
 		-h|--help)    usage; exit 0 ;;
@@ -400,14 +232,6 @@ upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev
 unpushed=0
 if [[ -n "$upstream" ]] && (( has_head )); then
 	unpushed="$(git rev-list --count "$upstream..HEAD" 2>/dev/null || printf '0')"
-fi
-
-# --link: elegir el remoto antes que nada, y no cortar por "nada que hacer".
-if (( LINK )); then
-	can_prompt || die "--link necesita una terminal interactiva"
-	link_remote
-	upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
-	unpushed=1
 fi
 
 # ─── nada que hacer ──────────────────────────────────────────────────────────

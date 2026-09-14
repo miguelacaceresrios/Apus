@@ -1,2 +1,10 @@
-apus
-apus.exe
+# binarios
+/dist/
+*.exe
+*.exe~
+
+# editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

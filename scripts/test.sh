@@ -3,27 +3,29 @@
 # Batería de pruebas de apus. Arma repos de juguete en un directorio temporal
 # (con un bare local haciendo de "GitHub") y verifica los códigos de salida.
 #
-#   ./test.sh
+#   scripts/test.sh                 # prueba apus.sh
+#   APUS_IMPL=go scripts/test.sh    # prueba el binario de dist/
 #
 # No toca tu configuración de git: usa GIT_CONFIG_GLOBAL apuntando al temporal.
 
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(dirname "$HERE")"
 
 # Qué implementación probar: bash (apus.sh) o go (el binario compilado).
 IMPL="${APUS_IMPL:-bash}"
 case "$IMPL" in
 	bash)
-		APUS="$ROOT/apus.sh"
+		APUS="$HERE/apus.sh"
 		[[ -x "$APUS" ]] || { echo "no encuentro apus.sh ejecutable"; exit 1; }
 		RUN=(bash "$APUS")
 		RUNSTR="bash '$APUS'"
 		;;
 	go)
-		APUS="$ROOT/apus.exe"
-		[[ -x "$APUS" ]] || APUS="$ROOT/apus"
-		[[ -x "$APUS" ]] || { echo "no encuentro el binario: corré 'go build -o apus .'"; exit 1; }
+		APUS="$ROOT/dist/apus.exe"
+		[[ -x "$APUS" ]] || APUS="$ROOT/dist/apus"
+		[[ -x "$APUS" ]] || { echo "no encuentro dist/apus: compilá con 'make build' o 'scripts/build.ps1'"; exit 1; }
 		RUN=("$APUS")
 		RUNSTR="'$APUS'"
 		;;
@@ -38,70 +40,20 @@ git config --global user.name  "apus test"
 git config --global user.email "test@example.com"
 git config --global init.defaultBranch main
 
-# El binario Go es nativo de Windows y no entiende rutas MSYS (/tmp/...), así que
-# cuando lo probamos le pasamos las rutas en la forma que él sí entiende.
-native() {
-	if [[ "$IMPL" == go ]] && command -v cygpath >/dev/null 2>&1; then
-		cygpath -m "$1"
-	else
-		printf '%s' "$1"
-	fi
-}
-
 pass=0; fail=0
 
 check() { # check "nombre" <exit esperado> comando...
 	local name="$1" want="$2"; shift 2
 	local out rc=0
-	out="$("$@" 2>&1)" || rc=$?
+	# stdin vacío: ningún caso puede quedarse esperando el teclado. Los que
+	# necesitan responder algo lo mandan por su propio pipe.
+	out="$("$@" 2>&1 </dev/null)" || rc=$?
 	if [[ "$rc" == "$want" ]]; then
 		pass=$(( pass + 1 )); printf 'ok    %-44s exit=%s\n' "$name" "$rc"
 	else
 		fail=$(( fail + 1 )); printf 'FALLA %-44s exit=%s (esperaba %s)\n%s\n' "$name" "$rc" "$want" "$out"
 	fi
 }
-
-# ─── gh falso ────────────────────────────────────────────────────────────────
-# Devuelve tres repos; uno apunta al bare local para poder pushear de verdad.
-# apus.sh pide TSV (con --jq) y el binario pide JSON: servimos los dos.
-
-mkdir -p "$TMP/bin"
-cat > "$TMP/bin/gh" <<GH
-#!/usr/bin/env bash
-case "\$1" in
-	auth)   exit 0 ;;
-	config) printf 'https\n'; exit 0 ;;
-	api)    printf 'gato\n'; exit 0 ;;
-	repo)
-		case "\$2" in
-			create) printf 'Created repository gato/%s on GitHub\n' "\$3"; exit 0 ;;
-			list)
-				if [[ " \$* " == *" --jq "* ]]; then
-					printf '%s\t%s\t%s\t%s\t%s\n' \
-					  "gato/uno"  "PRIVATE" "https://github.com/gato/uno"  "git@github.com:gato/uno.git"  "2026-09-01T10:00:00Z" \
-					  "gato/link" "PUBLIC"  "$TMP/remote-link.git"         "$TMP/remote-link.git"         "2026-09-10T08:00:00Z" \
-					  "gato/tres" "PRIVATE" "https://github.com/gato/tres" "git@github.com:gato/tres.git" "2026-08-02T08:00:00Z"
-				else
-					cat <<'JSON'
-[
- {"nameWithOwner":"gato/uno","visibility":"PRIVATE","url":"https://github.com/gato/uno","sshUrl":"git@github.com:gato/uno.git","updatedAt":"2026-09-01T10:00:00Z"},
- {"nameWithOwner":"gato/link","visibility":"PUBLIC","url":"__LINK__","sshUrl":"__LINK__","updatedAt":"2026-09-10T08:00:00Z"},
- {"nameWithOwner":"gato/tres","visibility":"PRIVATE","url":"https://github.com/gato/tres","sshUrl":"git@github.com:gato/tres.git","updatedAt":"2026-08-02T08:00:00Z"}
-]
-JSON
-				fi
-				exit 0 ;;
-		esac ;;
-esac
-exit 1
-GH
-# la ruta del bare local se inyecta acá para no pelear con las comillas del heredoc
-sed -i "s|__LINK__|$TMP/remote-link.git|g" "$TMP/bin/gh"
-chmod +x "$TMP/bin/gh"
-
-# En Windows sólo se puede ejecutar algo con extensión conocida, así que el
-# binario necesita este puente para llegar al stub. En Linux sobra y no molesta.
-printf '@echo off\r\nbash "%%~dp0gh" %%*\r\n' > "$TMP/bin/gh.cmd"
 
 # ─── flujo básico: add + commit + push ───────────────────────────────────────
 
@@ -155,31 +107,30 @@ check "varios remotos sin origin"             1 "${RUN[@]}" -q
 check "APUS_REMOTE inexistente"               1 env APUS_REMOTE=nope "${RUN[@]}" -q
 check "APUS_REMOTE válido"                    0 env APUS_REMOTE=otro "${RUN[@]}" -q
 
-# ─── vinculación (gh falso, respuestas por pipe) ─────────────────────────────
+# ─── sin remoto: apus avisa y no toca nada ───────────────────────────────────
 
-export PATH="$TMP/bin:$PATH"
-git init -q --bare "$TMP/remote-link.git"
+git init -q "$TMP/sinremoto"; cd "$TMP/sinremoto" || exit 1; echo x > x.txt
+check "repo sin remoto: avisa"                1 "${RUN[@]}" -q
+check "pero el commit quedó hecho"            0 bash -c '[[ -z "$(git status --porcelain)" ]]'
+check "y sigue avisando si insistís"          1 "${RUN[@]}" -q
 
-mkdir -p "$TMP/link"; cd "$TMP/link" || exit 1; echo x > x.txt
-check "init + elegir repo de la lista"        0 bash -c "printf 's\n2\n' | $RUNSTR -q 'primer vuelo'"
-check "quedó vinculado a origin"              0 bash -c '[[ -n "$(git remote get-url origin)" ]]'
+git remote add origin "$TMP/remote-nuevo.git"
+git init -q --bare "$TMP/remote-nuevo.git"
+check "con el remoto puesto, sube"            0 "${RUN[@]}" -q
 
-git init -q --bare "$TMP/remote-u.git"
-git init -q "$TMP/pega"; cd "$TMP/pega" || exit 1; echo y > y.txt
-check "pegar una ruta/URL (opción u)"         0 bash -c "printf 'u\n$(native "$TMP/remote-u.git")\n' | $RUNSTR -q"
-git init -q --bare "$TMP/remote-relink.git"
-check "--link cambia el remoto"               0 bash -c "printf 'u\n$(native "$TMP/remote-relink.git")\n' | $RUNSTR -q --link"
+# ─── carpeta que todavía no es repo ──────────────────────────────────────────
 
-git init -q "$TMP/crear"; cd "$TMP/crear" || exit 1; echo z > z.txt
-check "crear repo nuevo (opción n, dry-run)"  0 bash -c "printf 'n\nflamante\npublic\n' | $RUNSTR -q -n"
-check "usuario/repo abreviado (dry-run)"      0 bash -c "printf 'u\ngato/algo\n' | $RUNSTR -q -n"
-check "cancelar la vinculación"               1 bash -c "printf 'q\n' | $RUNSTR -q"
-check "entrada inválida y después cancelar"   1 bash -c "printf 'pepe\n/tres\n99\nq\n' | $RUNSTR -q"
+mkdir -p "$TMP/nueva"; cd "$TMP/nueva" || exit 1; echo y > y.txt
+check "ofrece iniciar el repo (s)"            1 bash -c "printf 's\n' | $RUNSTR -q"
+check "y lo inicializó"                       0 bash -c '[[ -d .git ]]'
+check "con el commit adentro"                 0 bash -c 'git log -1 --oneline >/dev/null 2>&1'
+
+mkdir -p "$TMP/nueva2"; cd "$TMP/nueva2" || exit 1; echo z > z.txt
+check "si decís que no, no toca nada"         1 bash -c "printf 'n\n' | $RUNSTR -q"
+check "y no quedó ningún .git"                0 bash -c '[[ ! -d .git ]]'
 
 # ─── sin terminal: no pregunta nada ──────────────────────────────────────────
 
-git init -q "$TMP/muda"; cd "$TMP/muda" || exit 1; echo w > w.txt
-check "sin remoto y sin terminal"             1 bash -c "$RUNSTR -q </dev/null"
 mkdir -p "$TMP/sinrepo"; cd "$TMP/sinrepo" || exit 1; echo v > v.txt
 check "sin repo y sin terminal"               1 bash -c "$RUNSTR -q </dev/null"
 

@@ -15,6 +15,7 @@ import (
 func git(dir string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
+	noConsole(cmd)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
@@ -34,6 +35,7 @@ func git(dir string, args ...string) (string, error) {
 func gitCombined(dir string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
+	noConsole(cmd)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimRight(string(out), "\r\n"), err
 }
@@ -51,18 +53,6 @@ type FileChange struct {
 	Origin string `json:"origin"` // ruta anterior, si hubo rename
 }
 
-// Label es el cartelito corto para mostrar: M, A, D, R, ??
-func (f FileChange) Label() string {
-	code := strings.TrimSpace(f.Index + f.Work)
-	if code == "" {
-		return "?"
-	}
-	if len(code) > 2 {
-		code = code[:2]
-	}
-	return code
-}
-
 // Repo es la foto de un repositorio en un momento dado.
 type Repo struct {
 	Path      string       `json:"path"`   // toplevel
@@ -74,16 +64,10 @@ type Repo struct {
 	Remote    string       `json:"remote"`    // nombre del remoto (origin, …)
 	RemoteURL string       `json:"remoteUrl"` // URL del remoto elegido
 	Ahead     int          `json:"ahead"`
-	Behind    int          `json:"behind"`
 	Files     []FileChange `json:"files"`
 }
 
 func (r *Repo) Dirty() bool { return len(r.Files) > 0 }
-
-// Clean dice si no hay nada que hacer: ni cambios ni commits sin subir.
-func (r *Repo) Clean() bool {
-	return !r.Dirty() && r.Upstream != "" && r.Ahead == 0
-}
 
 // Summary es la línea de estado que se muestra en las listas.
 func (r *Repo) Summary() string {
@@ -98,14 +82,20 @@ func (r *Repo) Summary() string {
 	} else if r.Ahead > 1 {
 		parts = append(parts, fmt.Sprintf("%d commits sin subir", r.Ahead))
 	}
-	if r.Upstream == "" && r.HasHead {
-		parts = append(parts, "sin remoto")
+	if r.HasHead && r.Upstream == "" {
+		// Ojo con la diferencia: no es lo mismo no tener a dónde subir que
+		// tener remoto y no haber publicado la rama todavía.
+		if r.RemoteURL == "" {
+			parts = append(parts, "sin remoto")
+		} else {
+			parts = append(parts, "rama sin publicar")
+		}
 	}
 	if len(parts) == 0 {
 		if !r.HasHead {
 			return "vacío"
 		}
-		return "limpio"
+		return "al día"
 	}
 	return strings.Join(parts, ", ")
 }
@@ -142,9 +132,7 @@ func LoadRepo(dir string) (*Repo, error) {
 		r.Remote, _, _ = strings.Cut(up, "/")
 		if r.HasHead {
 			if counts, err := git(root, "rev-list", "--left-right", "--count", up+"...HEAD"); err == nil {
-				fields := strings.Fields(counts)
-				if len(fields) == 2 {
-					r.Behind, _ = strconv.Atoi(fields[0])
+				if fields := strings.Fields(counts); len(fields) == 2 {
 					r.Ahead, _ = strconv.Atoi(fields[1])
 				}
 			}

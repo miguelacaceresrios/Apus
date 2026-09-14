@@ -14,19 +14,29 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
-//go:embed ui.html
+//go:embed ui/index.html
 var uiHTML []byte
 
 type uiServer struct {
-	bases []string
-	token string
+	bases    []string
+	token    string
+	host     string // "127.0.0.1:puerto": lo único que se acepta en la cabecera Host
+	autoQuit bool   // apagarse cuando se cierra la ventana (atajo de escritorio)
+
+	mu       sync.Mutex
+	lastSeen time.Time // último pedido de la página
+	byeAt    time.Time // aviso de "me cierro" que mandó la página
 }
 
 func cmdUI(args []string) int {
-	port := 7373
+	port, portSet := 7373, false
 	open := true
+	// Sin terminal no hay Ctrl+C: la única forma de cerrar apus es cerrar la ventana.
+	autoQuit := guiMode()
 	var dirs []string
 
 	for i := 0; i < len(args); i++ {
@@ -40,7 +50,7 @@ func cmdUI(args []string) int {
 			if err != nil || n < 0 || n > 65535 {
 				return dieMsg(codeUsage, "puerto inválido: "+args[i], "")
 			}
-			port = n
+			port, portSet = n, true
 		case "--dir", "-d":
 			if i+1 >= len(args) {
 				return dieMsg(codeUsage, "--dir necesita una ruta", "")
@@ -49,6 +59,8 @@ func cmdUI(args []string) int {
 			dirs = append(dirs, args[i])
 		case "--no-open":
 			open = false
+		case "--quit-on-close":
+			autoQuit = true
 		case "-q", "--quiet":
 			quiet = true
 		case "-h", "--help":
@@ -59,23 +71,35 @@ func cmdUI(args []string) int {
 		}
 	}
 
+	os.Setenv("GIT_TERMINAL_PROMPT", "0")
+
 	bases := repoBases(dirs)
 	if len(bases) == 0 {
 		return dieMsg(codeRepo, "no sé dónde buscar repos", "pasá --dir RUTA o definí APUS_REPOS_DIR")
 	}
 
-	srv := &uiServer{bases: bases, token: randomToken()}
+	srv := &uiServer{bases: bases, token: randomToken(), autoQuit: autoQuit, lastSeen: time.Now()}
 	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
+	if err != nil && !portSet {
+		// El puerto de siempre está ocupado (¿otra ventana de apus abierta?): uno libre.
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+	}
 	if err != nil {
 		return dieMsg(codeRepo, "no pude abrir el puerto "+strconv.Itoa(port)+": "+firstLine(err.Error()),
 			"probá con otro: apus ui --port 7400")
 	}
 	addr := ln.Addr().(*net.TCPAddr)
-	url := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", addr.Port, srv.token)
+	srv.host = fmt.Sprintf("127.0.0.1:%d", addr.Port)
+	url := "http://" + srv.host + "/?t=" + srv.token
 
 	okMsg(fmt.Sprintf("apus ui escuchando en http://127.0.0.1:%d", addr.Port))
 	note("repos en: " + strings.Join(bases, ", "))
-	note("cortá con Ctrl+C")
+	if autoQuit {
+		note("se apaga solo al cerrar la ventana")
+		go srv.watchdog()
+	} else {
+		note("cortá con Ctrl+C")
+	}
 	if open {
 		openBrowser(url)
 	} else {
@@ -96,21 +120,70 @@ func randomToken() string {
 	return hex.EncodeToString(b)
 }
 
+// seen anota que la página sigue del otro lado.
+func (s *uiServer) seen() {
+	s.mu.Lock()
+	s.lastSeen = time.Now()
+	s.mu.Unlock()
+}
+
+// watchdog es la red de seguridad del modo --quit-on-close: si la ventana se
+// fue sin avisar (o se colgó el navegador), apus no queda corriendo para siempre.
+func (s *uiServer) watchdog() {
+	for range time.Tick(30 * time.Second) {
+		s.mu.Lock()
+		quiet := time.Since(s.lastSeen)
+		s.mu.Unlock()
+		if quiet > 5*time.Minute {
+			os.Exit(0)
+		}
+	}
+}
+
+// bye lo llama la página cuando se cierra. Esperamos unos segundos por si fue
+// una recarga: si vuelve a pedir algo, nos quedamos.
+func (s *uiServer) bye(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("apus")
+	if err != nil || c.Value != s.token || r.Host != s.host {
+		http.Error(w, "sin permiso", http.StatusForbidden)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+	if !s.autoQuit {
+		return
+	}
+	s.mu.Lock()
+	s.byeAt = time.Now()
+	s.mu.Unlock()
+	go func() {
+		time.Sleep(4 * time.Second)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.lastSeen.After(s.byeAt) {
+			return // era una recarga: la página volvió
+		}
+		os.Exit(0)
+	}()
+}
+
 func (s *uiServer) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.index)
-	mux.HandleFunc("/api/repos", s.guard(s.apiRepos))
-	mux.HandleFunc("/api/repo", s.guard(s.apiRepo))
-	mux.HandleFunc("/api/diff", s.guard(s.apiDiff))
-	mux.HandleFunc("/api/push", s.guard(s.apiPush))
-	mux.HandleFunc("/api/gh", s.guard(s.apiGH))
-	mux.HandleFunc("/api/link", s.guard(s.apiLink))
+	mux.HandleFunc("/api/bye", s.bye)
+	mux.HandleFunc("/api/ping", s.guard(s.apiPing))
+	mux.HandleFunc("/api/pick", s.guard(s.apiPick))
+	mux.HandleFunc("/api/inspect", s.guard(s.apiInspect))
+	mux.HandleFunc("/api/send", s.guard(s.apiSend))
 	return mux
 }
 
 // index entrega la página. El enlace que abre la terminal trae el token; a
 // partir de ahí vive en una cookie, así que recargar la página sigue andando.
 func (s *uiServer) index(w http.ResponseWriter, r *http.Request) {
+	if r.Host != s.host {
+		http.Error(w, "sin permiso", http.StatusForbidden)
+		return
+	}
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
@@ -132,15 +205,17 @@ func (s *uiServer) index(w http.ResponseWriter, r *http.Request) {
 	w.Write(uiHTML)
 }
 
-// guard deja pasar sólo a la propia página: cookie del token más una cabecera
-// que un sitio ajeno no puede mandar sin que el navegador pida permiso antes.
+// guard deja pasar sólo a la propia página: cookie del token, una cabecera que
+// un sitio ajeno no puede mandar sin que el navegador pida permiso antes, y el
+// Host exacto (así un dominio que resuelva a 127.0.0.1 tampoco entra).
 func (s *uiServer) guard(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie("apus")
-		if err != nil || c.Value != s.token || r.Header.Get("X-Apus") == "" {
+		if err != nil || c.Value != s.token || r.Header.Get("X-Apus") == "" || r.Host != s.host {
 			http.Error(w, "sin permiso", http.StatusForbidden)
 			return
 		}
+		s.seen()
 		h(w, r)
 	}
 }
@@ -155,129 +230,47 @@ func badRequest(w http.ResponseWriter, msg string) {
 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 }
 
-// repoView es lo que la página necesita saber de un repo.
-type repoView struct {
-	*Repo
-	Icon    string `json:"icon"`
-	Summary string `json:"summary"`
-	Browse  string `json:"browse"`
+// apiPing lo manda la página cada tanto: mientras la ventana esté abierta,
+// el modo --quit-on-close no apaga nada.
+func (s *uiServer) apiPing(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func view(r *Repo) repoView {
-	return repoView{Repo: r, Icon: icon(r), Summary: r.Summary(), Browse: browseURL(r.RemoteURL)}
-}
-
-func (s *uiServer) apiRepos(w http.ResponseWriter, r *http.Request) {
-	repos := findRepos(s.bases, 3)
-	out := make([]repoView, 0, len(repos))
-	for _, rp := range repos {
-		out = append(out, view(rp))
+// apiPick abre el selector de carpetas del sistema y espera a que elijas.
+func (s *uiServer) apiPick(w http.ResponseWriter, r *http.Request) {
+	start := r.URL.Query().Get("from")
+	if start == "" && len(s.bases) > 0 {
+		start = s.bases[0]
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"repos": out, "bases": s.bases})
-}
-
-// resolveRepo carga el repo de una ruta pedida por la página.
-func resolveRepo(path string) (*Repo, error) {
-	if strings.TrimSpace(path) == "" {
-		return nil, fmt.Errorf("falta la ruta del repo")
-	}
-	if !filepath.IsAbs(path) {
-		return nil, fmt.Errorf("la ruta del repo tiene que ser absoluta")
-	}
-	return LoadRepo(path)
-}
-
-func (s *uiServer) apiRepo(w http.ResponseWriter, r *http.Request) {
-	repo, err := resolveRepo(r.URL.Query().Get("path"))
+	dir, err := pickFolder(start)
 	if err != nil {
 		badRequest(w, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, view(repo))
-}
-
-// apiDiff muestra el diff de un archivo; si es nuevo, sus primeras líneas.
-func (s *uiServer) apiDiff(w http.ResponseWriter, r *http.Request) {
-	repo, err := resolveRepo(r.URL.Query().Get("path"))
-	if err != nil {
-		badRequest(w, err.Error())
+	if dir == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"cancelled": true})
 		return
 	}
-	file := r.URL.Query().Get("file")
-	if err := safeRelPath(file); err != nil {
-		badRequest(w, err.Error())
-		return
-	}
-	out, _ := git(repo.Path, "diff", "HEAD", "--", file)
-	if strings.TrimSpace(out) == "" {
-		out, _ = git(repo.Path, "diff", "--", file)
-	}
-	if strings.TrimSpace(out) == "" {
-		// Archivo nuevo: mostramos lo que tiene adentro.
-		if data, err := os.ReadFile(filepath.Join(repo.Path, filepath.FromSlash(file))); err == nil {
-			body := string(data)
-			if len(body) > 20000 {
-				body = body[:20000] + "\n… (recortado)"
-			}
-			out = body
-		}
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"diff": out})
+	writeJSON(w, http.StatusOK, map[string]any{"dir": dir, "inspect": Inspect(dir)})
 }
 
-// safeRelPath evita que la página pida rutas de más o que git las confunda con
-// opciones.
-func safeRelPath(p string) error {
-	if strings.TrimSpace(p) == "" {
-		return fmt.Errorf("falta el archivo")
-	}
-	if strings.HasPrefix(p, "-") {
-		return fmt.Errorf("ruta inválida: %s", p)
-	}
-	if filepath.IsAbs(p) || strings.HasPrefix(p, "/") {
-		return fmt.Errorf("la ruta tiene que ser relativa al repo: %s", p)
-	}
-	for _, part := range strings.Split(filepath.ToSlash(p), "/") {
-		if part == ".." {
-			return fmt.Errorf("ruta inválida: %s", p)
-		}
-	}
-	return nil
+func (s *uiServer) apiInspect(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, Inspect(strings.TrimSpace(r.URL.Query().Get("dir"))))
 }
 
-type pushRequest struct {
-	Path    string   `json:"path"`
-	Message string   `json:"message"`
-	Paths   []string `json:"paths"`
-	DryRun  bool     `json:"dryRun"`
+type sendRequest struct {
+	Dir string `json:"dir"`
+	URL string `json:"url"`
 }
 
-func (s *uiServer) apiPush(w http.ResponseWriter, r *http.Request) {
-	var req pushRequest
+func (s *uiServer) apiSend(w http.ResponseWriter, r *http.Request) {
+	var req sendRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		badRequest(w, "no entendí el pedido: "+err.Error())
 		return
 	}
-	repo, err := resolveRepo(req.Path)
-	if err != nil {
-		badRequest(w, err.Error())
-		return
-	}
-	for _, p := range req.Paths {
-		if err := safeRelPath(p); err != nil {
-			badRequest(w, err.Error())
-			return
-		}
-	}
-
-	flow := &Flow{DryRun: req.DryRun}
-	res, err := flow.Push(repo, req.Message, req.Paths)
-
-	fresh, ferr := LoadRepo(repo.Path)
-	if ferr != nil {
-		fresh = repo
-	}
-	body := map[string]any{"result": res, "repo": view(fresh)}
+	res, err := Send(strings.TrimSpace(req.Dir), req.URL)
+	body := map[string]any{"result": res, "inspect": Inspect(strings.TrimSpace(req.Dir))}
 	if err != nil {
 		if f, ok := err.(*Fail); ok {
 			body["error"], body["hint"], body["code"] = f.Msg, f.Hint, f.Code
@@ -286,82 +279,6 @@ func (s *uiServer) apiPush(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, body)
-}
-
-func (s *uiServer) apiGH(w http.ResponseWriter, r *http.Request) {
-	out := map[string]any{
-		"available": ghAvailable(),
-		"ready":     ghReady(),
-		"protocol":  "https",
-		"repos":     []GHRepo{},
-	}
-	if ghAvailable() {
-		out["protocol"] = ghProtocol()
-	}
-	if ghReady() {
-		if repos, err := ghList(); err == nil {
-			out["repos"] = repos
-		} else {
-			out["error"] = firstLine(err.Error())
-		}
-	}
-	writeJSON(w, http.StatusOK, out)
-}
-
-type linkRequest struct {
-	Path       string `json:"path"`
-	URL        string `json:"url"`        // URL pegada, usuario/repo, o ruta local
-	Create     string `json:"create"`     // nombre del repo nuevo a crear en GitHub
-	Visibility string `json:"visibility"` // private | public
-}
-
-func (s *uiServer) apiLink(w http.ResponseWriter, r *http.Request) {
-	var req linkRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		badRequest(w, "no entendí el pedido: "+err.Error())
-		return
-	}
-	repo, err := resolveRepo(req.Path)
-	if err != nil {
-		badRequest(w, err.Error())
-		return
-	}
-
-	var url, label string
-	if name := strings.TrimSpace(req.Create); name != "" {
-		if !ghReady() {
-			badRequest(w, "para crear el repo necesitás gh con sesión iniciada: 'gh auth login'")
-			return
-		}
-		full, u, err := ghCreate(name, req.Visibility)
-		if err != nil {
-			badRequest(w, "gh no pudo crear el repo: "+firstLine(err.Error()))
-			return
-		}
-		url, label = u, full
-	} else {
-		u, err := normalizeRemote(req.URL)
-		if err != nil {
-			badRequest(w, err.Error())
-			return
-		}
-		url = u
-		if label = browseURL(u); label == "" {
-			label = u
-		} else {
-			label = strings.TrimPrefix(label, "https://")
-		}
-	}
-
-	if err := setRemote(repo.Path, "origin", url); err != nil {
-		badRequest(w, "no pude configurar el remoto: "+firstLine(err.Error()))
-		return
-	}
-	fresh, ferr := LoadRepo(repo.Path)
-	if ferr != nil {
-		fresh = repo
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"remote": "origin", "label": label, "url": url, "repo": view(fresh)})
 }
 
 // openBrowser abre la UI como ventana de aplicación si encuentra un navegador
@@ -398,7 +315,7 @@ func openBrowser(url string) {
 		} else if _, err := os.Stat(path); err != nil {
 			continue
 		}
-		if err := exec.Command(path, appArg, "--new-window").Start(); err == nil {
+		if err := exec.Command(path, appArg, "--new-window", "--window-size=540,500").Start(); err == nil {
 			return
 		}
 	}

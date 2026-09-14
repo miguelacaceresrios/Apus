@@ -44,17 +44,18 @@ type Result struct {
 	Target    string `json:"target"`
 	URL       string `json:"url"`
 	Summary   string `json:"summary"`
+	Note      string `json:"note,omitempty"` // algo que conviene avisar, aunque haya salido bien
 }
 
 // Flow ejecuta add + commit + push. La UI y la CLI comparten esto; lo único que
-// cambia es cómo informan cada paso y cómo consiguen un remoto si falta.
+// cambia es cómo informan cada paso.
+//
+// Flow no configura remotos: eso lo hace Send, con la URL que da el usuario, o
+// el usuario mismo con git. Si falta, el vuelo termina con el comando a correr.
 type Flow struct {
 	DryRun bool
 	// Say recibe cada paso: kind es "cmd", "out", "ok" o "warn".
 	Say func(kind, text string)
-	// Link se llama cuando el repo no tiene remoto. Devuelve el nombre del
-	// remoto que quedó configurado. Si es nil, el vuelo falla pidiendo uno.
-	Link func(r *Repo) (string, error)
 }
 
 func (f *Flow) say(kind, text string) {
@@ -79,8 +80,8 @@ func (f *Flow) run(res *Result, dir string, args ...string) (string, error) {
 	return out, err
 }
 
-// Push es el vuelo completo. paths vacío significa "todo" (git add -A).
-func (f *Flow) Push(r *Repo, message string, paths []string) (*Result, error) {
+// Push es el vuelo completo: add -A, commit y push.
+func (f *Flow) Push(r *Repo, message string) (*Result, error) {
 	res := &Result{Branch: r.Branch}
 
 	if r.Detached {
@@ -101,22 +102,12 @@ func (f *Flow) Push(r *Repo, message string, paths []string) (*Result, error) {
 
 	// ─── add + commit ───────────────────────────────────────────────────
 	if r.Dirty() {
-		addArgs := []string{"add", "-A"}
-		if len(paths) > 0 {
-			addArgs = append([]string{"add", "--"}, paths...)
-		}
-		if out, err := f.run(res, r.Path, addArgs...); err != nil {
+		if out, err := f.run(res, r.Path, "add", "-A"); err != nil {
 			return res, fail(codeRepo, "no se pudieron preparar los cambios: %s", firstLine(out))
 		}
 
-		staged := true
-		if !f.DryRun {
-			checkArgs := []string{"diff", "--cached", "--quiet"}
-			if len(paths) > 0 {
-				checkArgs = append(append(checkArgs, "--"), paths...)
-			}
-			staged = !gitOK(r.Path, checkArgs...)
-		}
+		// En dry-run no se agregó nada, así que no hay índice que mirar.
+		staged := f.DryRun || !gitOK(r.Path, "diff", "--cached", "--quiet")
 
 		if !staged {
 			f.say("warn", "no quedó nada preparado para commitear: salteo el commit")
@@ -124,11 +115,7 @@ func (f *Flow) Push(r *Repo, message string, paths []string) (*Result, error) {
 			if strings.TrimSpace(message) == "" {
 				message = defaultMessage()
 			}
-			commitArgs := []string{"commit", "-m", message}
-			if len(paths) > 0 {
-				commitArgs = append(append(commitArgs, "--"), paths...)
-			}
-			if out, err := f.run(res, r.Path, commitArgs...); err != nil {
+			if out, err := f.run(res, r.Path, "commit", "-m", message); err != nil {
 				return res, fail(codeRepo, "el commit falló: %s", firstLine(out)).
 					withHint("si tenés hooks de pre-commit, puede que uno lo haya rechazado")
 			}
@@ -158,21 +145,12 @@ func (f *Flow) Push(r *Repo, message string, paths []string) (*Result, error) {
 				return res, fail(codeRepo, "APUS_REMOTE apunta a '%s', que no es un remoto de este repo", pref).
 					withHint("los que hay: " + strings.Join(names, ", "))
 			}
-			// Con varios remotos hay que elegir, no agregar otro.
 			if len(names) > 1 {
 				return res, fail(codeRepo, "hay varios remotos (%s) y ninguno se llama origin", strings.Join(names, ", ")).
 					withHint("elegí uno con APUS_REMOTE=<remoto>")
 			}
-			if f.Link == nil {
-				return res, fail(codeRepo, "este repo no tiene remoto configurado").
-					withHint("corré 'apus --link' para elegirlo, o 'git remote add origin <url>'")
-			}
-			var err error
-			remote, err = f.Link(r)
-			if err != nil {
-				return res, err
-			}
-			r.Remote = remote
+			return res, fail(codeRepo, "este repo no tiene remoto").
+				withHint("git remote add origin <url>")
 		}
 		res.Target = remote + "/" + r.Branch
 		pushArgs = []string{"push", "-u", remote, r.Branch}
@@ -189,7 +167,7 @@ func (f *Flow) Push(r *Repo, message string, paths []string) (*Result, error) {
 		case strings.Contains(out, "Authentication failed"),
 			strings.Contains(out, "Permission denied"),
 			strings.Contains(out, "could not read Username"):
-			e.Hint = "problema de credenciales: probá 'gh auth login' o configurá tu clave SSH"
+			e.Hint = "git no pudo autenticarse: revisá tu sesión de GitHub (Git Credential Manager) o tu clave SSH"
 		}
 		return res, e
 	}
