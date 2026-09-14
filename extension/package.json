@@ -1,0 +1,270 @@
+{
+  "name": "apus-affinis",
+  "displayName": "Apus affinis",
+  "description": "Auto-commit y push con apus, con el estado de cada repo a la vista en VS Code.",
+  "version": "0.1.0",
+  "publisher": "miguelacaceresr",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1b1a1f",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miguelacaceresr/apus-affinis"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "apus",
+    "git",
+    "auto commit",
+    "autocommit",
+    "push",
+    "commit",
+    "sync",
+    "watcher",
+    "backup"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "En un workspace no confiable apus no hace auto-commits; subir a mano sigue disponible.",
+      "restrictedConfigurations": [
+        "apus.autoStart"
+      ]
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "apus",
+          "title": "Apus",
+          "icon": "images/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "apus": [
+        {
+          "id": "apus.repos",
+          "name": "Repos",
+          "icon": "images/activity.svg",
+          "contextualTitle": "Apus"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "apus.repos",
+        "contents": "No hay repos git abiertos en esta ventana.\n[Abrir carpeta](command:vscode.openFolder)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "apus.menu",
+        "title": "Menú",
+        "category": "Apus",
+        "icon": "$(list-selection)"
+      },
+      {
+        "command": "apus.toggleWatch",
+        "title": "Vigilar o pausar un repo",
+        "category": "Apus",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "apus.watch",
+        "title": "Vigilar",
+        "category": "Apus",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "apus.pause",
+        "title": "Pausar",
+        "category": "Apus",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "apus.pushNow",
+        "title": "Subir ahora",
+        "category": "Apus",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "apus.showLog",
+        "title": "Commits automáticos",
+        "category": "Apus",
+        "icon": "$(history)"
+      },
+      {
+        "command": "apus.openSettings",
+        "title": "Reglas",
+        "category": "Apus",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "apus.selectBinary",
+        "title": "Elegir el binario de apus…",
+        "category": "Apus"
+      },
+      {
+        "command": "apus.showOutput",
+        "title": "Mostrar registro",
+        "category": "Apus",
+        "icon": "$(output)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "apus.watch",
+          "when": "false"
+        },
+        {
+          "command": "apus.pause",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "apus.openSettings",
+          "when": "view == apus.repos",
+          "group": "navigation@1"
+        },
+        {
+          "command": "apus.showOutput",
+          "when": "view == apus.repos",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "apus.watch",
+          "when": "view == apus.repos && viewItem == apus.repo.paused",
+          "group": "inline@1"
+        },
+        {
+          "command": "apus.pause",
+          "when": "view == apus.repos && viewItem == apus.repo.watching",
+          "group": "inline@1"
+        },
+        {
+          "command": "apus.pushNow",
+          "when": "view == apus.repos",
+          "group": "inline@2"
+        },
+        {
+          "command": "apus.showLog",
+          "when": "view == apus.repos",
+          "group": "apus@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Apus",
+      "properties": {
+        "apus.autoStart": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "Vigilar los repos apenas se abren. Apagado, cada repo se activa a mano desde el menú o la vista **Apus**."
+        },
+        "apus.watchInterval": {
+          "type": "number",
+          "default": 120,
+          "minimum": 5,
+          "scope": "resource",
+          "markdownDescription": "Segundos sin cambios nuevos antes de hacer el auto-commit."
+        },
+        "apus.minInterval": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Mínimo de segundos entre dos auto-commits del mismo repo, aunque haya varias ventanas abiertas."
+        },
+        "apus.ignorePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "Globs, relativos a la raíz del repo, cuyos cambios **no disparan** un auto-commit (por ejemplo `*.log` o `docs/**`). Si hay otros cambios, se suben todos juntos: para dejar archivos fuera de git usá `.gitignore`."
+        },
+        "apus.messageTemplate": {
+          "type": "string",
+          "default": "chore: auto-commit {date}",
+          "scope": "resource",
+          "markdownDescription": "Mensaje de los auto-commits. `{date}` se reemplaza por la fecha y hora. Al final se agrega el trailer `Apus-Auto: true` para reconocerlos después."
+        },
+        "apus.notifications": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Avisar cada auto-commit y cada error.",
+            "Avisar solo cuando algo falla.",
+            "No avisar nunca: el estado queda en la barra y en la vista."
+          ],
+          "default": "all",
+          "scope": "window",
+          "markdownDescription": "Qué notificaciones mostrar."
+        },
+        "apus.logSize": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 200,
+          "scope": "resource",
+          "markdownDescription": "Cuántos commits automáticos listar."
+        },
+        "apus.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "Ruta al binario de apus (`apus.exe` en Windows). Vacío: se busca en el `PATH`."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "check": "tsc --noEmit",
+    "compile": "npm run check && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "npm run check && node esbuild.mjs --production",
+    "test": "tsc -p tsconfig.test.json && node --test \"out/test/**/*.test.js\"",
+    "vsix": "vsce package --no-dependencies --out apus-affinis.vsix",
+    "install-ext": "npm run vsix && code --install-extension apus-affinis.vsix --force"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@types/vscode": "~1.90.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
+    "typescript": "~5.9"
+  }
+}
