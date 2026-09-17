@@ -1,10 +1,7 @@
 import * as vscode from 'vscode';
 import { configuredBinary, SECTION } from './config';
-import { findApus, type BinaryLookup } from './core/binary';
+import { apusDownload, findApus, type BinaryLookup } from './core/binary';
 import { binaryProblem } from './ui/text';
-
-/** Instrucciones de instalación de apus. Cuando apus publique releases, conviene apuntar a /releases/latest. */
-export const APUS_DOWNLOAD_URL = 'https://github.com/miguelacaceresrios/Apus#instalación';
 
 /**
  * Dónde está apus. Se busca al arrancar, al cambiar apus.path y al volver a la
@@ -86,9 +83,30 @@ export class ApusBinary implements vscode.Disposable {
     if (answer === choose) {
       await this.choose();
     } else if (answer === download) {
-      await vscode.env.openExternal(vscode.Uri.parse(APUS_DOWNLOAD_URL));
+      await this.download();
     } else if (answer === guide) {
       await vscode.commands.executeCommand('apus.getStarted');
+    }
+  }
+
+  /**
+   * Baja apus desde la última release, con el navegador: así la descarga pasa
+   * por los mismos controles que cualquier otra. Después se elige el archivo.
+   */
+  async download(): Promise<void> {
+    const { url, asset } = apusDownload();
+    await vscode.env.openExternal(vscode.Uri.parse(url));
+    if (!asset) {
+      return;
+    }
+    const choose = vscode.l10n.t('Choose apus…');
+    const steps = [vscode.l10n.t('Downloading {0} in your browser. When it finishes, choose the file here.', asset)];
+    if (process.platform !== 'win32') {
+      steps.push(vscode.l10n.t('First make it executable: chmod +x {0}', asset));
+    }
+    const answer = await vscode.window.showInformationMessage(steps.join(' '), choose);
+    if (answer === choose) {
+      await this.choose();
     }
   }
 

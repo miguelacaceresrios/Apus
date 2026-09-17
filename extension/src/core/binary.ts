@@ -19,6 +19,24 @@ export type BinaryLookup = { ok: true; path: string } | { ok: false; problem: Bi
 const isWindows = process.platform === 'win32';
 export const APUS_EXE = isWindows ? 'apus.exe' : 'apus';
 
+const RELEASES = 'https://github.com/miguelacaceresrios/Apus/releases/latest';
+
+/**
+ * Dónde bajar apus para esta máquina: el binario de la última release, con los
+ * nombres que publica release.yml en el repo de apus. Si no hay uno para este
+ * sistema, la página de releases.
+ */
+export function apusDownload(platform: NodeJS.Platform = process.platform, arch: string = process.arch): { url: string; asset?: string } {
+  const cpu = arch === 'x64' ? 'amd64' : arch === 'arm64' ? 'arm64' : undefined;
+  let asset: string | undefined;
+  if (cpu && platform === 'win32') {
+    asset = cpu === 'amd64' ? 'apus.exe' : 'apus-windows-arm64.exe';
+  } else if (cpu && (platform === 'linux' || platform === 'darwin')) {
+    asset = `apus-${platform}-${cpu}`;
+  }
+  return asset ? { url: `${RELEASES}/download/${asset}`, asset } : { url: RELEASES };
+}
+
 /**
  * Encuentra el binario de apus: la ruta configurada si hay una, si no el PATH.
  * En Windows solo acepta .exe: un .cmd, .bat o .sh necesita una shell, y eso es

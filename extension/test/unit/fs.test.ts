@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { findApus } from '../../src/core/binary';
+import { apusDownload, findApus } from '../../src/core/binary';
 import { withLock } from '../../src/core/lock';
 
 const windows = process.platform === 'win32';
@@ -86,4 +86,15 @@ test('findApus en Windows cambia apusw.exe por apus.exe y rechaza scripts', { sk
   assert.deepEqual(await findApus(apusw, {}), { ok: true, path: apus });
   const script = await fakeBinary(dir, 'apus.cmd');
   assert.deepEqual(await findApus(script, {}), { ok: false, problem: 'notExe', path: script });
+});
+
+test('apusDownload elige el binario de la release para cada sistema', () => {
+  const latest = 'https://github.com/miguelacaceresrios/Apus/releases/latest';
+  assert.deepEqual(apusDownload('win32', 'x64'), { url: `${latest}/download/apus.exe`, asset: 'apus.exe' });
+  assert.deepEqual(apusDownload('win32', 'arm64'), { url: `${latest}/download/apus-windows-arm64.exe`, asset: 'apus-windows-arm64.exe' });
+  assert.deepEqual(apusDownload('linux', 'x64'), { url: `${latest}/download/apus-linux-amd64`, asset: 'apus-linux-amd64' });
+  assert.deepEqual(apusDownload('darwin', 'arm64'), { url: `${latest}/download/apus-darwin-arm64`, asset: 'apus-darwin-arm64' });
+  // Sin binario para esta máquina, la página de releases.
+  assert.deepEqual(apusDownload('freebsd', 'x64'), { url: latest });
+  assert.deepEqual(apusDownload('linux', 'ia32'), { url: latest });
 });

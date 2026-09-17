@@ -5,6 +5,8 @@
   "Download apus": "Descargar apus",
   "Open guide": "Abrir la guía",
   "apus: {0}.": "apus: {0}.",
+  "Downloading {0} in your browser. When it finishes, choose the file here.": "Bajando {0} en el navegador. Cuando termine, elegí el archivo acá.",
+  "First make it executable: chmod +x {0}": "Antes, hacelo ejecutable: chmod +x {0}",
   "Choose the apus binary": "Elegí el binario de apus",
   "Use this one": "Usar este",
   "1 change": "1 cambio",

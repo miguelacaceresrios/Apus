@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { APUS_DOWNLOAD_URL, type ApusBinary } from './apusBinary';
+import type { ApusBinary } from './apusBinary';
 import type { Registry } from './repos/registry';
 import type { LostFolder, RepoController } from './repos/repoController';
 import { explainNested, fixLast, openRemote, pushNow, removeRepo, changeUrl } from './ui/actions';
@@ -64,7 +64,7 @@ export function registerCommands(
     'apus.openSettings': () => vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${context.extension.id}`),
     'apus.selectBinary': () => binary.choose(),
     'apus.fixBinary': () => binary.offerFix(),
-    'apus.downloadApus': () => vscode.env.openExternal(vscode.Uri.parse(APUS_DOWNLOAD_URL)),
+    'apus.downloadApus': () => binary.download(),
     'apus.getStarted': () =>
       vscode.commands.executeCommand('workbench.action.openWalkthrough', `${context.extension.id}#apus.gettingStarted`, false),
     'apus.showOutput': () => log.show(),
