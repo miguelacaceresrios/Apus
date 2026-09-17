@@ -16,9 +16,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
@@ -58,6 +58,9 @@ jobs:
           [ -s notes.md ] || { echo "CHANGELOG.md no tiene la sección ## $version"; exit 1; }
 
       - name: release en GitHub
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "apus $GITHUB_REF_NAME" --notes-file notes.md
+        uses: softprops/action-gh-release@v3
+        with:
+          name: apus ${{ github.ref_name }}
+          body_path: notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
