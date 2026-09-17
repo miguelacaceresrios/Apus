@@ -5,7 +5,6 @@
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { initRepo } from '../../src/core/git';
@@ -20,6 +19,7 @@ import {
   stopTracking,
   type Finding,
 } from '../../src/core/safety';
+import { tempDir } from './tmp';
 
 const GIT = 'git';
 const fake = {
@@ -30,10 +30,6 @@ const fake = {
   anthropic: ['sk-', 'ant-', 'api03-', 'Z9'.repeat(45)].join(''),
   urlPassword: ['postgres://', 'app:', 'S3cr3tPass', '@db.internal.net/app'].join(''),
 };
-
-async function tempDir(prefix: string): Promise<string> {
-  return fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), prefix)));
-}
 
 async function tempRepo(): Promise<string> {
   const dir = await tempDir('apus-affinis-safety-');

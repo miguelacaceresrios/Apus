@@ -4,19 +4,14 @@
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { initRepo, readRemotes, rootCommits, setRemoteUrl } from '../../src/core/git';
 import { findRepos, inspectFolder, samePath } from '../../src/core/inspect';
 import { MissingFolderError, runProcess } from '../../src/core/process';
+import { tempDir } from './tmp';
 
 const GIT = 'git';
-
-async function tempDir(): Promise<string> {
-  // realpath: en macOS el temporal es un symlink, y git devuelve la ruta real.
-  return fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'apus-affinis-')));
-}
 
 function git(cwd: string, ...args: string[]): string {
   return execFileSync(GIT, args, {

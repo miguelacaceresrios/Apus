@@ -1,17 +1,13 @@
 import { strict as assert } from 'node:assert';
 import { promises as fs } from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { apusDownload, findApus } from '../../src/core/binary';
 import { withLock } from '../../src/core/lock';
+import { tempDir } from './tmp';
 
 const windows = process.platform === 'win32';
 const EXE = windows ? 'apus.exe' : 'apus';
-
-async function tempDir(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'apus-affinis-'));
-}
 
 async function fakeBinary(dir: string, name = EXE): Promise<string> {
   const file = path.join(dir, name);
