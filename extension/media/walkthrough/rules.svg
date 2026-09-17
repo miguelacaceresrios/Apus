@@ -1,54 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" width="560" height="360">
-  <style>
-    .card { fill: var(--vscode-editor-background, #1e1e1e); stroke: var(--vscode-widget-border, #3c3c3c); }
-    .fg { fill: var(--vscode-foreground, #cccccc); }
-    .dim { fill: var(--vscode-descriptionForeground, #9d9d9d); }
-    .faint { fill: var(--vscode-descriptionForeground, #9d9d9d); opacity: .28; }
-    .input { fill: var(--vscode-input-background, #3c3c3c); stroke: var(--vscode-input-border, #3c3c3c); }
-    .focus { fill: var(--vscode-input-background, #3c3c3c); stroke: var(--vscode-focusBorder, #007fd4); }
-    .chip { fill: var(--vscode-badge-background, #4d4d4d); }
-    .chipfg { fill: var(--vscode-badge-foreground, #ffffff); }
-    .accent { fill: var(--vscode-charts-orange, #ef8a4b); }
-    .dimline { stroke: var(--vscode-descriptionForeground, #9d9d9d); }
-    text { font-family: var(--vscode-font-family, 'Segoe UI', system-ui, sans-serif); }
-    .mono { font-family: var(--vscode-editor-font-family, Consolas, 'Courier New', monospace); }
-  </style>
+<svg font-family="var(--vscode-font-family, 'Segoe UI', system-ui, sans-serif)" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" width="560" height="360">
   <defs>
     <path id="logo" d="M12 5.11C9.92 7.75 6.72 11.53 2 16.25C3.13 17 3.89 17.75 5.02 18.89C7.66 16.25 9.74 14.17 12 12.28C14.26 14.17 16.34 16.25 18.98 18.89C20.11 17.75 20.87 17 22 16.25C17.28 11.53 14.08 7.75 12 5.11Z"/>
   </defs>
 
-  <rect x="60" y="28" width="440" height="304" rx="10" class="card"/>
+  <rect x="60" y="28" width="440" height="304" rx="10" fill="var(--vscode-editor-background, #1e1e1e)" stroke="var(--vscode-widget-border, #3c3c3c)"/>
 
   <!-- buscador de ajustes -->
-  <rect x="80" y="46" width="400" height="28" rx="4" class="input"/>
-  <use href="#logo" transform="translate(88 50) scale(.8)" class="accent"/>
-  <text x="114" y="65" font-size="12.5" class="mono fg">@ext:apus-affinis</text>
+  <rect x="80" y="46" width="400" height="28" rx="4" fill="var(--vscode-input-background, #3c3c3c)" stroke="var(--vscode-input-border, #3c3c3c)"/>
+  <use href="#logo" transform="translate(88 50) scale(.8)" fill="var(--vscode-charts-orange, #ef8a4b)"/>
+  <text x="114" y="65" font-size="12.5" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">@ext:apus-affinis</text>
 
   <!-- watchInterval: con foco -->
-  <rect x="80" y="92" width="2.5" height="48" class="accent"/>
-  <text x="94" y="106" font-size="12" class="mono fg">apus.watchInterval</text>
-  <rect x="94" y="115" width="86" height="25" rx="3" class="focus"/>
-  <text x="104" y="132" font-size="12.5" class="mono fg">120</text>
-  <rect x="192" y="124" width="150" height="6" rx="3" class="faint"/>
+  <rect x="80" y="92" width="2.5" height="48" fill="var(--vscode-charts-orange, #ef8a4b)"/>
+  <text x="94" y="106" font-size="12" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">apus.watchInterval</text>
+  <rect x="94" y="115" width="86" height="25" rx="3" fill="var(--vscode-input-background, #3c3c3c)" stroke="var(--vscode-focusBorder, #007fd4)"/>
+  <text x="104" y="132" font-size="12.5" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">120</text>
+  <rect x="192" y="124" width="150" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
 
   <!-- minInterval -->
-  <text x="94" y="166" font-size="12" class="mono fg">apus.minInterval</text>
-  <rect x="94" y="175" width="86" height="25" rx="3" class="input"/>
-  <text x="104" y="192" font-size="12.5" class="mono fg">300</text>
-  <rect x="192" y="184" width="118" height="6" rx="3" class="faint"/>
+  <text x="94" y="166" font-size="12" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">apus.minInterval</text>
+  <rect x="94" y="175" width="86" height="25" rx="3" fill="var(--vscode-input-background, #3c3c3c)" stroke="var(--vscode-input-border, #3c3c3c)"/>
+  <text x="104" y="192" font-size="12.5" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">300</text>
+  <rect x="192" y="184" width="118" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
 
   <!-- ignorePatterns -->
-  <text x="94" y="226" font-size="12" class="mono fg">apus.ignorePatterns</text>
-  <rect x="94" y="236" width="58" height="22" rx="11" class="chip"/>
-  <text x="123" y="251" text-anchor="middle" font-size="12" class="mono chipfg">*.log</text>
-  <rect x="160" y="236" width="78" height="22" rx="11" class="chip"/>
-  <text x="199" y="251" text-anchor="middle" font-size="12" class="mono chipfg">docs/**</text>
-  <rect x="246" y="236" width="22" height="22" rx="11" fill="none" stroke-width="1.2" stroke-dasharray="3 3" class="dimline"/>
-  <text x="257" y="252" text-anchor="middle" font-size="14" class="dim">+</text>
+  <text x="94" y="226" font-size="12" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">apus.ignorePatterns</text>
+  <rect x="94" y="236" width="58" height="22" rx="11" fill="var(--vscode-badge-background, #4d4d4d)"/>
+  <text x="123" y="251" text-anchor="middle" font-size="12" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-badge-foreground, #ffffff)">*.log</text>
+  <rect x="160" y="236" width="78" height="22" rx="11" fill="var(--vscode-badge-background, #4d4d4d)"/>
+  <text x="199" y="251" text-anchor="middle" font-size="12" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-badge-foreground, #ffffff)">docs/**</text>
+  <rect x="246" y="236" width="22" height="22" rx="11" fill="none" stroke-width="1.2" stroke-dasharray="3 3" stroke="var(--vscode-descriptionForeground, #9d9d9d)"/>
+  <text x="257" y="252" text-anchor="middle" font-size="14" fill="var(--vscode-descriptionForeground, #9d9d9d)">+</text>
 
   <!-- notifications -->
-  <text x="94" y="286" font-size="12" class="mono fg">apus.notifications</text>
-  <rect x="94" y="295" width="110" height="25" rx="3" class="input"/>
-  <text x="104" y="312" font-size="12.5" class="mono fg">errors</text>
-  <path d="M186 305l4.5 4.5 4.5-4.5" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" class="dimline"/>
+  <text x="94" y="286" font-size="12" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">apus.notifications</text>
+  <rect x="94" y="295" width="110" height="25" rx="3" fill="var(--vscode-input-background, #3c3c3c)" stroke="var(--vscode-input-border, #3c3c3c)"/>
+  <text x="104" y="312" font-size="12.5" font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" fill="var(--vscode-foreground, #cccccc)">errors</text>
+  <path d="M186 305l4.5 4.5 4.5-4.5" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke="var(--vscode-descriptionForeground, #9d9d9d)"/>
 </svg>

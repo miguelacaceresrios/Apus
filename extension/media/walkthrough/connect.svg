@@ -1,17 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" width="560" height="360">
-  <style>
-    .card { fill: var(--vscode-editorWidget-background, #252526); stroke: var(--vscode-widget-border, #3c3c3c); }
-    .fg { fill: var(--vscode-foreground, #cccccc); }
-    .dim { fill: var(--vscode-descriptionForeground, #9d9d9d); }
-    .faint { fill: var(--vscode-descriptionForeground, #9d9d9d); opacity: .28; }
-    .accent { fill: var(--vscode-charts-orange, #ef8a4b); }
-    .bar { fill: var(--vscode-statusBar-background, #007acc); }
-    .barfg { fill: var(--vscode-statusBar-foreground, #ffffff); }
-    .side { fill: var(--vscode-activityBar-background, #333333); }
-    .ok { fill: var(--vscode-charts-green, #89d185); }
-    .line { stroke: var(--vscode-descriptionForeground, #9d9d9d); }
-    text { font-family: var(--vscode-editor-font-family, Consolas, 'Courier New', monospace); }
-  </style>
+<svg font-family="var(--vscode-editor-font-family, Consolas, 'Courier New', monospace)" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" width="560" height="360">
   <defs>
     <path id="logo" d="M12 5.11C9.92 7.75 6.72 11.53 2 16.25C3.13 17 3.89 17.75 5.02 18.89C7.66 16.25 9.74 14.17 12 12.28C14.26 14.17 16.34 16.25 18.98 18.89C20.11 17.75 20.87 17 22 16.25C17.28 11.53 14.08 7.75 12 5.11Z"/>
   </defs>
@@ -19,30 +6,30 @@
   <!-- apus: el ícono de siempre -->
   <rect x="56" y="104" width="152" height="152" rx="34" fill="#1b1a1f"/>
   <use href="#logo" transform="translate(68 100) scale(5.33)" fill="#ef8a4b"/>
-  <text x="132" y="290" text-anchor="middle" font-size="15" class="fg">apus</text>
+  <text x="132" y="290" text-anchor="middle" font-size="15" fill="var(--vscode-foreground, #cccccc)">apus</text>
 
   <!-- conexión -->
-  <line x1="222" y1="180" x2="290" y2="180" stroke-width="2" stroke-dasharray="5 6" stroke-linecap="round" class="line"/>
-  <circle cx="256" cy="180" r="15" class="ok"/>
+  <line x1="222" y1="180" x2="290" y2="180" stroke-width="2" stroke-dasharray="5 6" stroke-linecap="round" stroke="var(--vscode-descriptionForeground, #9d9d9d)"/>
+  <circle cx="256" cy="180" r="15" fill="var(--vscode-charts-green, #89d185)"/>
   <path d="M249 180.5l4.6 4.6 9-9.4" fill="none" stroke="#1b1a1f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- VS Code -->
-  <rect x="304" y="88" width="208" height="184" rx="10" class="card"/>
-  <circle cx="320" cy="102" r="3.5" class="faint"/>
-  <circle cx="332" cy="102" r="3.5" class="faint"/>
-  <circle cx="344" cy="102" r="3.5" class="faint"/>
-  <rect x="305" y="114" width="30" height="134" class="side"/>
-  <rect x="313" y="124" width="14" height="14" rx="3" class="faint"/>
-  <rect x="313" y="150" width="14" height="14" rx="3" class="faint"/>
-  <rect x="305" y="174" width="2.5" height="22" class="accent"/>
-  <use href="#logo" transform="translate(311 176) scale(.75)" class="accent"/>
-  <rect x="347" y="128" width="96" height="6" rx="3" class="faint"/>
-  <rect x="347" y="144" width="140" height="6" rx="3" class="faint"/>
-  <rect x="359" y="160" width="110" height="6" rx="3" class="faint"/>
-  <rect x="359" y="176" width="72" height="6" rx="3" class="faint"/>
-  <rect x="347" y="192" width="124" height="6" rx="3" class="faint"/>
-  <rect x="347" y="208" width="84" height="6" rx="3" class="faint"/>
-  <path d="M305 248h206v13a10 10 0 0 1-10 10H315a10 10 0 0 1-10-10z" class="bar"/>
-  <use href="#logo" transform="translate(313 251.5) scale(.62)" class="barfg"/>
-  <text x="332" y="264" font-size="11" class="barfg">10:48</text>
+  <rect x="304" y="88" width="208" height="184" rx="10" fill="var(--vscode-editorWidget-background, #252526)" stroke="var(--vscode-widget-border, #3c3c3c)"/>
+  <circle cx="320" cy="102" r="3.5" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <circle cx="332" cy="102" r="3.5" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <circle cx="344" cy="102" r="3.5" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="305" y="114" width="30" height="134" fill="var(--vscode-activityBar-background, #333333)"/>
+  <rect x="313" y="124" width="14" height="14" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="313" y="150" width="14" height="14" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="305" y="174" width="2.5" height="22" fill="var(--vscode-charts-orange, #ef8a4b)"/>
+  <use href="#logo" transform="translate(311 176) scale(.75)" fill="var(--vscode-charts-orange, #ef8a4b)"/>
+  <rect x="347" y="128" width="96" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="347" y="144" width="140" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="359" y="160" width="110" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="359" y="176" width="72" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="347" y="192" width="124" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <rect x="347" y="208" width="84" height="6" rx="3" fill="var(--vscode-descriptionForeground, #9d9d9d)" opacity=".28"/>
+  <path d="M305 248h206v13a10 10 0 0 1-10 10H315a10 10 0 0 1-10-10z" fill="var(--vscode-statusBar-background, #007acc)"/>
+  <use href="#logo" transform="translate(313 251.5) scale(.62)" fill="var(--vscode-statusBar-foreground, #ffffff)"/>
+  <text x="332" y="264" font-size="11" fill="var(--vscode-statusBar-foreground, #ffffff)">10:48</text>
 </svg>
