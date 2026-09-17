@@ -16,18 +16,79 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci
+
+      - name: tipos
+        run: npm run check
+
+      - name: lint
+        run: npm run lint
+
+      - name: formato
+        run: npm run format:check
+
       - name: textos extraídos al día
         shell: bash
         run: npm run l10n && git diff --exit-code l10n/bundle.l10n.json
-      - name: pruebas
-        run: npm test
+
+      - name: pruebas y cobertura
+        shell: bash
+        run: |
+          npm run test:coverage | tee coverage.txt
+          if [ "$RUNNER_OS" = Linux ]; then
+            { echo '### Cobertura del núcleo'; echo '```'; grep -E '^(File|All files| [a-z])' coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: empaquetar
         run: npm run vsix
+
+  # Dentro de un VS Code de verdad, con la extensión Git y el apus de la última release.
+  integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: apus, desde su última release
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/apus"
+          if [ "$RUNNER_OS" = Windows ]; then asset=apus.exe; exe="$RUNNER_TEMP/apus/apus.exe"; else asset=apus-linux-amd64; exe="$RUNNER_TEMP/apus/apus"; fi
+          curl -fsSL -o "$exe" "https://github.com/miguelacaceresrios/Apus/releases/latest/download/$asset"
+          chmod +x "$exe"
+          "$exe" --version
+          echo "APUS_EXE=$exe" >> "$GITHUB_ENV"
+
+      - name: VS Code en caché
+        uses: actions/cache@v6
+        with:
+          path: .vscode-test
+          key: vscode-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: compilar
+        run: npm run compile
+
+      - name: pruebas de integración (Linux, sin pantalla)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:integration
+
+      - name: pruebas de integración (Windows)
+        if: runner.os == 'Windows'
+        run: npm run test:integration

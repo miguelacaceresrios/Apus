@@ -195,7 +195,10 @@ apus-affinis/
 ```bash
 npm install
 npm test               # core unit tests + translation coverage
-npm run test:integration  # inside a separate VS Code window (set APUS_EXE to push for real)
+npm run test:coverage  # the same, with coverage of src/core (fails under 90% of lines)
+npm run test:integration  # inside a separate VS Code it downloads (set APUS_EXE to push for real)
+npm run lint           # ESLint, with type-aware rules
+npm run format         # Prettier (format:check in CI)
 npm run compile        # typecheck + esbuild bundle into dist/
 npm run l10n           # re-export strings after adding a message
 npm run icons          # rebuild activity.svg and apus-icons.woff

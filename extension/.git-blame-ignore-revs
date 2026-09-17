@@ -1,0 +1,6 @@
+# Commits de solo formato: git blame los saltea con
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub lo aplica solo).
+
+# style: ESLint y Prettier
+77871159401bed756b3322cf9a8e33c0d2d6eed1

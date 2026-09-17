@@ -20,9 +20,9 @@ jobs:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
       OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -44,9 +44,12 @@ jobs:
         run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
 
       - name: release en GitHub
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" apus-affinis.vsix --title "Apus affinis $GITHUB_REF_NAME" --notes-file notes.md
+        uses: softprops/action-gh-release@v3
+        with:
+          name: Apus affinis ${{ github.ref_name }}
+          body_path: notes.md
+          files: apus-affinis.vsix
+          fail_on_unmatched_files: true
 
       - name: Visual Studio Marketplace
         if: env.VSCE_PAT != ''
