@@ -1,0 +1,7 @@
+# Los .go, los scripts de shell y la ventana con finales de línea de Unix en
+# cualquier sistema: gofmt y bash los necesitan así, también en Windows.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.ico binary
+*.exe binary
