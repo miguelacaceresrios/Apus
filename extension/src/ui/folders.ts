@@ -10,7 +10,8 @@ import { initRepo } from '../core/git';
 import { exists, inspectFolder } from '../core/inspect';
 import { shortUrl } from '../core/remote';
 import type { Registry } from '../repos/registry';
-import type { LostFolder, RepoController } from '../repos/repoController';
+import type { RepoController } from '../repos/repoController';
+import type { LostFolder } from '../repos/types';
 import { changeUrl } from './actions';
 import { tildify } from './text';
 

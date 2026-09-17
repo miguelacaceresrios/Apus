@@ -8,7 +8,8 @@ import type { Flight, Trouble } from '../core/apus';
 import { APUS_EXE, type BinaryProblem } from '../core/binary';
 import { shortUrl, type UrlCheck } from '../core/remote';
 import { formatClock, formatRelative } from '../core/time';
-import type { BlockReason, LostFolder, RepoController } from '../repos/repoController';
+import type { RepoController } from '../repos/repoController';
+import type { BlockReason, LostFolder } from '../repos/types';
 
 export const locale = (): string => vscode.env.language;
 

@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import { notifyLevel, SECTION } from '../config';
 import { diagnose } from '../core/apus';
 import type { Finding } from '../core/safety';
-import type { FlightReport, RepoController } from '../repos/repoController';
+import type { RepoController } from '../repos/repoController';
+import type { FlightReport } from '../repos/types';
 import { isSecret, location, ruleText } from './safety';
 import { changes, fixLabel, flightSummary, tildify, troubleText } from './text';
 

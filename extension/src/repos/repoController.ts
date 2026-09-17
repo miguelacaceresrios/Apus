@@ -1,83 +1,33 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { readRepoConfig, type RepoConfig, type SafetyConfig } from '../config';
-import { autoMessage, flyApus, type Flight } from '../core/apus';
-import {
-  absoluteGitDir,
-  autoCommits,
-  browseUrl,
-  lastAutoCommitAt,
-  lastPushAt,
-  readRemotes,
-  rootCommits,
-  setRemoteUrl,
-  type AutoCommit,
-  type Remote,
-} from '../core/git';
+import { readRepoConfig, type RepoConfig } from '../config';
+import type { Flight } from '../core/apus';
+import { autoCommits, browseUrl, lastAutoCommitAt, lastPushAt, readRemotes, rootCommits, setRemoteUrl, type AutoCommit } from '../core/git';
 import { compileGlobs } from '../core/glob';
-import { withLock } from '../core/lock';
+import { HeldBack } from '../core/held';
 import { MissingFolderError } from '../core/process';
 import { chooseRemote, redactCredentials, shortUrl } from '../core/remote';
 import { addToGitignore, checkPending, stopTracking, type Finding } from '../core/safety';
 import { FlightScheduler } from '../core/scheduler';
-import { allowKey, belongsTo, repoKey, type AllowList, type WatchStore } from '../core/stores';
+import { allowKey, belongsTo, repoKey } from '../core/stores';
 import type { Repository } from '../git/api';
+import { launch } from './flight';
+import { snapshot, type RepoSnapshot } from './state';
+import type { BlockReason, FlightKind, LastError, LostFolder, RemoteInfo, RepoServices } from './types';
 
-export type FlightKind = 'auto' | 'manual';
-
-/** Por qué no se puede hacer auto-commit ahora. */
-export type BlockReason = 'untrusted' | 'conflicts' | 'detached' | 'noRemote';
-
-export interface FlightReport {
-  repo: RepoController;
-  kind: FlightKind;
-  flight: Flight;
-  /** Cambios que había al despegar. */
-  changes: number;
-}
-
-export interface RepoServices {
-  gitPath: string;
-  log: vscode.LogOutputChannel;
-  /** Ruta de apus, o undefined si no está. */
-  binary(interactive: boolean): Promise<string | undefined>;
-  watchStore: WatchStore;
-  onFlight(report: FlightReport, repeatedError: boolean): void;
-  /** La carpeta del repo ya no existe. */
-  onMissing(repo: RepoController): void;
-  /** En la carpeta hay otro repo que el que se vigilaba: se dejó de vigilar. */
-  onReplaced(repo: RepoController): void;
-  /** Cómo revisar lo que se va a subir. */
-  safety(): SafetyConfig;
-  /** Avisos que el usuario marcó como falsos. */
-  allowList: AllowList;
-  /** Un vuelo automático no subió nada porque la revisión encontró algo. */
-  onHeld(repo: RepoController, findings: readonly Finding[]): void;
-  /** Subir a mano con algo encontrado: true si el usuario decide subir igual. */
-  confirmHeld(repo: RepoController, findings: readonly Finding[]): Promise<boolean>;
-}
-
-/** A dónde sube el repo. */
-export interface RemoteInfo {
-  name: string;
-  url: string;
-}
-
-export interface LastError {
-  flight: Flight;
-  at: number;
-  /** A dónde subía cuando falló: si cambia, el error deja de importar. */
-  remoteUrl: string | undefined;
-}
-
-/** Un repo que ya no está donde estaba. */
-export interface LostFolder {
-  readonly key: string;
-  readonly path: string;
-  readonly name: string;
-  /** 'missing': la carpeta no existe. 'notRepo': existe, pero ya no es un repo. */
-  readonly reason: 'missing' | 'notRepo';
-}
+const EMPTY: RepoSnapshot = {
+  pending: 0,
+  relevant: 0,
+  branch: undefined,
+  upstream: undefined,
+  ahead: 0,
+  remoteNames: [],
+  remote: undefined,
+  blocked: undefined,
+  upToDate: false,
+  changeSignature: '',
+  headSignature: '',
+};
 
 /** Un repo: su estado, su vigilancia y sus vuelos. */
 export class RepoController implements vscode.Disposable {
@@ -88,28 +38,20 @@ export class RepoController implements vscode.Disposable {
   private _config: RepoConfig;
   private _watching: boolean;
   private _flying = false;
-  private _pending = 0;
-  private _relevant = 0;
-  private _ahead = 0;
-  private _branch: string | undefined;
-  private _upstream: string | undefined;
-  private _blocked: BlockReason | undefined;
-  private _remote: RemoteInfo | undefined;
-  private _remoteNames: string[] = [];
   private _missing = false;
   private _nested: string[] = [];
   private _lastPushAt: number | undefined;
   private _lastAutoAt: number | undefined;
   private _lastError: LastError | undefined;
-  private _held: readonly Finding[] | undefined;
 
-  /** La lista de cambios cuando se frenó: sin cambios nuevos ni archivos guardados, no se vuelve a intentar. */
-  private heldChanges: string | undefined;
-  /** Qué se frenó la última vez, para no avisar dos veces lo mismo. */
-  private heldFindings = '';
+  /** La última foto del estado de vscode.git. */
+  private state = EMPTY;
+  /** Lo que frenó la revisión antes de subir. */
+  private readonly heldBack = new HeldBack();
   /** Commits raíz; undefined hasta que se leen. Sin ellos no hay auto-commit. */
   private roots: string[] | undefined;
   private ignored: (relativePath: string) => boolean;
+  /** Lo visto en la sincronización anterior, para saber qué cambió. */
   private changeSignature = '';
   private headSignature = '';
   private remoteSignature: string | undefined;
@@ -156,31 +98,31 @@ export class RepoController implements vscode.Disposable {
   }
   /** Archivos con cambios, cuenten o no para el auto-commit. */
   get pending(): number {
-    return this._pending;
+    return this.state.pending;
   }
   /** Archivos con cambios que no están en apus.ignorePatterns. */
   get relevant(): number {
-    return this._relevant;
+    return this.state.relevant;
   }
   get ahead(): number {
-    return this._ahead;
+    return this.state.ahead;
   }
   get branch(): string | undefined {
-    return this._branch;
+    return this.state.branch;
   }
   get upstream(): string | undefined {
-    return this._upstream;
+    return this.state.upstream;
   }
   get blocked(): BlockReason | undefined {
-    return this._blocked;
+    return this.state.blocked;
   }
   /** El remoto al que sube apus, si se puede saber. */
   get remote(): RemoteInfo | undefined {
-    return this._remote;
+    return this.state.remote;
   }
   /** Todos los remotos. Puede haber remotos y no `remote`: varios, y ninguno es origin. */
   get remoteNames(): readonly string[] {
-    return this._remoteNames;
+    return this.state.remoteNames;
   }
   /** La carpeta del repo ya no existe. */
   get missing(): boolean {
@@ -204,7 +146,7 @@ export class RepoController implements vscode.Disposable {
   }
   /** Lo que frenó la última subida: posibles secretos o archivos muy grandes. */
   get held(): readonly Finding[] | undefined {
-    return this._held;
+    return this.heldBack.findings;
   }
 
   asLost(): LostFolder {
@@ -216,7 +158,7 @@ export class RepoController implements vscode.Disposable {
     // Pausar o volver a vigilar es darse por enterado de un error viejo. Lo
     // frenado se vuelve a revisar en el próximo vuelo.
     this._lastError = undefined;
-    this.clearHeld();
+    this.heldBack.clear();
     const id = this.roots?.[0];
     await this.services.watchStore.set(this.key, id ? { on, id } : { on });
     this.services.log.info(`[${this.name}] ${on ? 'watching' : 'paused'}`);
@@ -233,10 +175,10 @@ export class RepoController implements vscode.Disposable {
     const remotes = await this.guard(() => readRemotes(this.services.gitPath, this.root.fsPath), []);
     const name = chooseRemote(
       remotes.map((r) => r.name),
-      this._upstream?.split('/')[0],
+      this.state.upstream?.split('/')[0],
     );
     const chosen = remotes.find((r) => r.name === name);
-    const url = chosen && urlOf(chosen);
+    const url = chosen?.pushUrl ?? chosen?.fetchUrl;
     return chosen && url
       ? { name: chosen.name, url, separatePushUrl: !!chosen.pushUrl && !!chosen.fetchUrl && chosen.pushUrl !== chosen.fetchUrl }
       : undefined;
@@ -254,12 +196,13 @@ export class RepoController implements vscode.Disposable {
     });
     this.services.log.info(`[${this.name}] ${name}: ${current ? `${shortUrl(current.url)} → ` : ''}${shortUrl(url)}`);
     // vscode.git se entera solo, pero puede tardar: que la vista no muestre la URL vieja mientras tanto.
-    this._remote = { name, url };
-    this._remoteNames = [...new Set([...this._remoteNames, name])];
+    this.state = {
+      ...this.state,
+      remote: { name, url },
+      remoteNames: [...new Set([...this.state.remoteNames, name])],
+      blocked: this.state.blocked === 'noRemote' ? undefined : this.state.blocked,
+    };
     this._lastError = undefined;
-    if (this._blocked === 'noRemote') {
-      this._blocked = undefined;
-    }
     this.emitter.fire();
     await this.repo.status?.().catch(() => undefined);
   }
@@ -287,12 +230,12 @@ export class RepoController implements vscode.Disposable {
   async recheck(): Promise<readonly Finding[]> {
     const findings = await this.guard(() => this.checkPending(), undefined);
     if (findings === undefined) {
-      return this._held ?? [];
+      return this.held ?? [];
     }
     if (findings.length > 0) {
       this.hold(findings, false);
-    } else if (this._held) {
-      this.clearHeld();
+    } else if (this.held) {
+      this.heldBack.clear();
       this.considerFlight(true);
     }
     this.emitter.fire();
@@ -331,10 +274,7 @@ export class RepoController implements vscode.Disposable {
 
   /** Se guardó un archivo del repo: el repo no está quieto, la espera vuelve a empezar. */
   noteSave(): void {
-    // Guardar puede haber sacado el secreto del archivo: que se vuelva a revisar.
-    if (this._held) {
-      this.heldChanges = undefined;
-    }
+    this.heldBack.noteSave();
     if (this.canAutoFly()) {
       this.scheduler.poke();
       this.emitter.fire();
@@ -363,7 +303,7 @@ export class RepoController implements vscode.Disposable {
 
   /** URL navegable del remoto, si es un host web. */
   browseUrl(): string | undefined {
-    return this._remote ? browseUrl(this._remote.url) : undefined;
+    return this.state.remote ? browseUrl(this.state.remote.url) : undefined;
   }
 
   /** Recalcula todo desde el estado que mantiene vscode.git. */
@@ -371,66 +311,33 @@ export class RepoController implements vscode.Disposable {
     if (this.disposed) {
       return;
     }
-    const state = this.repo.state;
-    const status = new Map<string, number>();
-    for (const change of [...state.mergeChanges, ...state.indexChanges, ...state.workingTreeChanges, ...(state.untrackedChanges ?? [])]) {
-      status.set(change.uri.fsPath, change.status);
-    }
-    const relevant = [...status.keys()].filter((p) => !this.ignored(path.relative(this.root.fsPath, p)));
-
-    const head = state.HEAD;
-    this._pending = status.size;
-    this._relevant = relevant.length;
-    this._branch = head?.name;
-    this._upstream = head?.upstream ? `${head.upstream.remote}/${head.upstream.name}` : undefined;
-    this._ahead = head?.ahead ?? 0;
-
-    this._remoteNames = state.remotes.map((r) => r.name);
-    const chosen = state.remotes.find((r) => r.name === chooseRemote(this._remoteNames, head?.upstream?.remote));
-    // vscode.git lee .git/config tal cual, donde "\" se escribe "\\": una ruta de Windows llega con las barras dobles.
-    const url = chosen && urlOf(chosen)?.replaceAll('\\\\', '\\');
-    this._remote = chosen && url ? { name: chosen.name, url } : undefined;
-
-    this._blocked = !vscode.workspace.isTrusted
-      ? 'untrusted'
-      : state.mergeChanges.length > 0
-        ? 'conflicts'
-        : head && !head.name
-          ? 'detached'
-          : state.remotes.length === 0
-            ? 'noRemote'
-            : undefined;
+    const next = snapshot(this.repo.state, this.root.fsPath, this.ignored, vscode.workspace.isTrusted);
+    this.state = next;
 
     // Un error viejo deja de importar cuando el repo pasa a estar limpio y al
     // día (por ejemplo, subiste desde la terminal), o cuando cambia a dónde
     // sube. Tiene que ser un cambio: justo después de un vuelo, vscode.git
     // puede no haber visto todavía el commit y parecer al día.
-    const upToDate = this._pending === 0 && this._ahead === 0 && this._upstream !== undefined;
-    const remoteSignature = `${this._remote?.name} ${this._remote?.url}`;
+    const remoteSignature = `${next.remote?.name} ${next.remote?.url}`;
     if (this._lastError && !this._flying) {
-      if (upToDate && this.upToDate === false) {
+      if (next.upToDate && this.upToDate === false) {
         this._lastError = undefined;
       } else if (this.remoteSignature !== undefined && remoteSignature !== this.remoteSignature) {
         void this.dropErrorIfRemoteChanged();
       }
     }
-    this.upToDate = upToDate;
+    this.upToDate = next.upToDate;
     this.remoteSignature = remoteSignature;
 
-    const headSignature = `${head?.commit}|${this._upstream}|${this._ahead}`;
-    if (headSignature !== this.headSignature) {
-      this.headSignature = headSignature;
+    if (next.headSignature !== this.headSignature) {
+      this.headSignature = next.headSignature;
       void this.refreshHistory();
     }
 
     // vscode.git avisa aunque no haya nada nuevo (por ejemplo, al volver a la
     // ventana): solo un cambio real en la lista reinicia la espera.
-    const changeSignature = relevant
-      .map((p) => `${status.get(p)} ${p}`)
-      .sort()
-      .join('\n');
-    const changed = changeSignature !== this.changeSignature;
-    this.changeSignature = changeSignature;
+    const changed = next.changeSignature !== this.changeSignature;
+    this.changeSignature = next.changeSignature;
     this.considerFlight(changed);
     this.emitter.fire();
   }
@@ -457,31 +364,26 @@ export class RepoController implements vscode.Disposable {
   }
 
   private canAutoFly(): boolean {
-    const stillHeld = this._held !== undefined && this.heldChanges === this.changeSignature;
-    return this._watching && this.roots !== undefined && !this._missing && !this._blocked && !stillHeld && this._relevant > 0;
+    return (
+      this._watching &&
+      this.roots !== undefined &&
+      !this._missing &&
+      !this.state.blocked &&
+      !this.heldBack.blocks(this.changeSignature) &&
+      this.state.relevant > 0
+    );
   }
 
   private hold(findings: readonly Finding[], notify: boolean): void {
-    const signature = findings.map(allowKey).sort().join('\n');
-    const isNew = signature !== this.heldFindings;
-    this._held = findings;
-    this.heldChanges = this.changeSignature;
-    this.heldFindings = signature;
     this.scheduler.cancel();
-    if (isNew) {
-      this.services.log.warn(
-        `[${this.name}] held back: ${findings.map((f) => `${f.path} (${f.rule}${f.line ? `, line ${f.line}` : ''}${f.commit ? `, commit ${f.commit}` : ''})`).join(', ')}`,
-      );
-      if (notify) {
-        this.services.onHeld(this, findings);
-      }
+    if (!this.heldBack.hold(findings, this.changeSignature)) {
+      return;
     }
-  }
-
-  private clearHeld(): void {
-    this._held = undefined;
-    this.heldChanges = undefined;
-    this.heldFindings = '';
+    const detail = (f: Finding) => `${f.path} (${f.rule}${f.line ? `, line ${f.line}` : ''}${f.commit ? `, commit ${f.commit}` : ''})`;
+    this.services.log.warn(`[${this.name}] held back: ${findings.map(detail).join(', ')}`);
+    if (notify) {
+      this.services.onHeld(this, findings);
+    }
   }
 
   private considerFlight(restart: boolean): void {
@@ -539,51 +441,37 @@ export class RepoController implements vscode.Disposable {
       return;
     }
 
-    const changes = this._pending;
+    const changes = this.state.pending;
     this._flying = true;
     this.emitter.fire();
     try {
-      // Antes de subir, mirar qué se sube. Lo automático no sube nada si
-      // aparece algo; lo manual pregunta.
-      const findings = await this.checkPending();
-      if (findings.length > 0) {
-        if (kind === 'auto') {
-          this.hold(findings, true);
-          return;
-        }
-        if (!(await this.services.confirmHeld(this, findings))) {
-          this.hold(findings, false);
-          return;
-        }
-        log.warn(`[${this.name}] pushing anyway, by hand: ${findings.map((f) => `${f.path} (${f.rule})`).join(', ')}`);
-      }
-      this.clearHeld();
-
-      const gitDir = await absoluteGitDir(this.services.gitPath, this.root.fsPath);
-      const result = await withLock(path.join(gitDir, 'apus.lock'), async () => {
-        if (kind === 'auto') {
-          // Otra ventana pudo haber subido hace nada.
-          const last = await lastAutoCommitAt(this.services.gitPath, this.root.fsPath);
-          if (last !== undefined && Date.now() - last < this._config.minGapMs) {
-            log.info(`[${this.name}] auto-commit skipped: the last one was ${Math.round((Date.now() - last) / 1000)} s ago`);
-            return undefined;
-          }
-        }
-        const message = kind === 'auto' ? autoMessage(this._config.messageTemplate, new Date()) : undefined;
-        log.info(`[${this.name}] ${kind === 'auto' ? 'auto-commit' : 'manual push'} with ${binary}`);
-        return flyApus(binary, this.root.fsPath, { message, background: kind === 'auto' });
-      });
-
-      if (!result.acquired) {
-        log.info(`[${this.name}] another process is pushing this repo${result.holder ? ` (pid ${result.holder.pid})` : ''}`);
-        if (kind === 'manual') {
-          void vscode.window.showInformationMessage(vscode.l10n.t('apus · {0}: another window is pushing this repo.', this.name));
-        }
+      if (!(await this.clearedForTakeoff(kind))) {
         return;
       }
-      if (result.value) {
-        const remoteUrl = result.value.ok ? undefined : (await this.readRemote())?.url;
-        this.report(kind, result.value, changes, remoteUrl);
+      log.info(`[${this.name}] ${kind === 'auto' ? 'auto-commit' : 'manual push'} with ${binary}`);
+      const result = await launch({
+        git: this.services.gitPath,
+        root: this.root.fsPath,
+        binary,
+        kind,
+        minGapMs: this._config.minGapMs,
+        messageTemplate: this._config.messageTemplate,
+      });
+      switch (result.kind) {
+        case 'busy':
+          log.info(`[${this.name}] another process is pushing this repo${result.pid ? ` (pid ${result.pid})` : ''}`);
+          if (kind === 'manual') {
+            void vscode.window.showInformationMessage(vscode.l10n.t('apus · {0}: another window is pushing this repo.', this.name));
+          }
+          break;
+        case 'tooSoon':
+          log.info(`[${this.name}] auto-commit skipped: the last one was ${result.secondsAgo} s ago`);
+          break;
+        case 'flown': {
+          const remoteUrl = result.flight.ok ? undefined : (await this.readRemote())?.url;
+          this.report(kind, result.flight, changes, remoteUrl);
+          break;
+        }
       }
     } catch (e) {
       if (e instanceof MissingFolderError) {
@@ -595,7 +483,7 @@ export class RepoController implements vscode.Disposable {
         kind,
         { code: -1, ok: false, summary, detail: undefined, committed: false, pushed: false, output: summary },
         changes,
-        this._remote?.url,
+        this.state.remote?.url,
       );
     } finally {
       this._flying = false;
@@ -606,6 +494,24 @@ export class RepoController implements vscode.Disposable {
         this.emitter.fire();
       }
     }
+  }
+
+  /** Antes de subir, mirar qué se sube. Lo automático no sube nada si aparece algo; lo manual pregunta. */
+  private async clearedForTakeoff(kind: FlightKind): Promise<boolean> {
+    const findings = await this.checkPending();
+    if (findings.length > 0) {
+      if (kind === 'auto') {
+        this.hold(findings, true);
+        return false;
+      }
+      if (!(await this.services.confirmHeld(this, findings))) {
+        this.hold(findings, false);
+        return false;
+      }
+      this.services.log.warn(`[${this.name}] pushing anyway, by hand: ${findings.map((f) => `${f.path} (${f.rule})`).join(', ')}`);
+    }
+    this.heldBack.clear();
+    return true;
   }
 
   private report(kind: FlightKind, flight: Flight, changes: number, remoteUrl: string | undefined): void {
@@ -627,8 +533,9 @@ export class RepoController implements vscode.Disposable {
   private async refreshHistory(): Promise<void> {
     const { gitPath } = this.services;
     await this.guard(async () => {
+      const upstream = this.state.upstream;
       const [push, auto] = await Promise.all([
-        this._upstream ? lastPushAt(gitPath, this.root.fsPath, this._upstream) : Promise.resolve(undefined),
+        upstream ? lastPushAt(gitPath, this.root.fsPath, upstream) : Promise.resolve(undefined),
         lastAutoCommitAt(gitPath, this.root.fsPath),
       ]);
       if (this.disposed) {
@@ -673,8 +580,4 @@ export class RepoController implements vscode.Disposable {
       this.services.log.warn(`[${this.name}] apus.ignorePatterns: skipping "${pattern}": ${error.message}`),
     );
   }
-}
-
-function urlOf(remote: Remote): string | undefined {
-  return remote.pushUrl ?? remote.fetchUrl;
 }

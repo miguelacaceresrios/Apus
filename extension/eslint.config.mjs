@@ -6,7 +6,7 @@ import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'out/', 'node_modules/', '.vscode-test/', 'scripts/', '*.mjs'] },
+  { ignores: ['dist/', 'out/', 'coverage/', 'node_modules/', '.vscode-test/', 'scripts/', '*.mjs'] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {

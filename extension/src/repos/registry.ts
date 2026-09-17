@@ -4,7 +4,8 @@ import { SECTION } from '../config';
 import { embeddedRepos, exists, isDirectory } from '../core/inspect';
 import { repoKey, type FolderList } from '../core/stores';
 import type { GitAPI, Repository } from '../git/api';
-import { RepoController, type LostFolder, type RepoServices } from './repoController';
+import { RepoController } from './repoController';
+import type { LostFolder, RepoServices } from './types';
 
 /**
  * Todos los repos de la lista: los que abre VS Code solo y las carpetas que

@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import type { ApusBinary } from './apusBinary';
 import type { Registry } from './repos/registry';
-import type { LostFolder, RepoController } from './repos/repoController';
+import type { RepoController } from './repos/repoController';
+import type { LostFolder } from './repos/types';
 import { explainNested, fixLast, openRemote, pushNow, removeRepo, changeUrl } from './ui/actions';
 import { addFolder } from './ui/folders';
 import { showAutoCommits, showMenu } from './ui/menu';
