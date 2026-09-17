@@ -54,7 +54,10 @@ test('browseUrl saca las credenciales y el .git con barra final', () => {
 });
 
 test('redactCredentials tapa claves y tokens, y deja los usuarios solos', () => {
-  assert.equal(redactCredentials(`To ${withPassword}\n   abc..def  main -> main`), 'To https://***@github.com/u/r.git\n   abc..def  main -> main');
+  assert.equal(
+    redactCredentials(`To ${withPassword}\n   abc..def  main -> main`),
+    'To https://***@github.com/u/r.git\n   abc..def  main -> main',
+  );
   assert.equal(redactCredentials(`https://${token}@github.com/u/r`), 'https://***@github.com/u/r');
   assert.equal(redactCredentials('ssh://git@github.com/u/r.git'), 'ssh://git@github.com/u/r.git');
   assert.equal(redactCredentials('https://miguel@github.com/u/r'), 'https://miguel@github.com/u/r');
@@ -71,7 +74,11 @@ test('flightEnv: en segundo plano no se abre ningún pedido de claves', () => {
   const base = { PATH: '/bin' };
   assert.deepEqual(flightEnv(base, false), { PATH: '/bin', GIT_TERMINAL_PROMPT: '0', NO_COLOR: '1' });
   assert.deepEqual(flightEnv(base, true), {
-    PATH: '/bin', GIT_TERMINAL_PROMPT: '0', NO_COLOR: '1', GCM_INTERACTIVE: 'never', SSH_ASKPASS_REQUIRE: 'never',
+    PATH: '/bin',
+    GIT_TERMINAL_PROMPT: '0',
+    NO_COLOR: '1',
+    GCM_INTERACTIVE: 'never',
+    SSH_ASKPASS_REQUIRE: 'never',
   });
 });
 
@@ -98,14 +105,20 @@ test('diagnose: sin remoto', () => {
 });
 
 test('diagnose: el repo de GitHub ya no existe', () => {
-  const f = parseFlight(3, [
-    '» git push',
-    'remote: Repository not found.',
-    "fatal: repository 'https://github.com/u/viper.git/' not found",
-    '✖ el push falló: main → origin/main',
-  ].join('\n'));
+  const f = parseFlight(
+    3,
+    [
+      '» git push',
+      'remote: Repository not found.',
+      "fatal: repository 'https://github.com/u/viper.git/' not found",
+      '✖ el push falló: main → origin/main',
+    ].join('\n'),
+  );
   assert.equal(diagnose(f), 'remoteNotFound');
-  assert.equal(diagnose(parseFlight(3, "fatal: '../borrado' does not appear to be a git repository\n✖ el push falló: main → origin/main")), 'remoteNotFound');
+  assert.equal(
+    diagnose(parseFlight(3, "fatal: '../borrado' does not appear to be a git repository\n✖ el push falló: main → origin/main")),
+    'remoteNotFound',
+  );
 });
 
 test('diagnose: autenticación, antes que "no encontrado"', () => {
@@ -118,7 +131,15 @@ test('diagnose: autenticación, antes que "no encontrado"', () => {
     '✖ el push falló: main → origin/main',
   ].join('\n');
   assert.equal(diagnose(parseFlight(3, ssh)), 'auth');
-  assert.equal(diagnose(parseFlight(3, "fatal: could not read Username for 'https://github.com': terminal prompts disabled\n✖ el push falló: main → origin/main")), 'auth');
+  assert.equal(
+    diagnose(
+      parseFlight(
+        3,
+        "fatal: could not read Username for 'https://github.com': terminal prompts disabled\n✖ el push falló: main → origin/main",
+      ),
+    ),
+    'auth',
+  );
 });
 
 test('diagnose: el remoto tiene commits nuevos', () => {

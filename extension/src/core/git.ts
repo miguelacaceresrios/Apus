@@ -45,11 +45,7 @@ export async function lastAutoCommitAt(git: string, root: string): Promise<numbe
  * ahí una entrada "update by push" con la hora.
  */
 export async function lastPushAt(git: string, root: string, upstream: string): Promise<number | undefined> {
-  const r = await runProcess(
-    git,
-    ['reflog', 'show', '--date=unix', '--format=%gd%x09%gs', `refs/remotes/${upstream}`],
-    { cwd: root },
-  );
+  const r = await runProcess(git, ['reflog', 'show', '--date=unix', '--format=%gd%x09%gs', `refs/remotes/${upstream}`], { cwd: root });
   return r.code === 0 ? parseLastPush(r.stdout) : undefined;
 }
 

@@ -533,6 +533,9 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "check": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"{src,test,scripts}/**/*.{ts,mjs}\" \"*.mjs\"",
+    "format:check": "prettier --check \"{src,test,scripts}/**/*.{ts,mjs}\" \"*.mjs\"",
     "compile": "npm run check && node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "package": "npm run check && node esbuild.mjs --production",
@@ -544,15 +547,20 @@
     "install-ext": "npm run vsix && code --install-extension apus-affinis.vsix --force"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.2",
     "@types/vscode": "~1.90.0",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
     "ovsx": "^1.2.0",
+    "prettier": "^3.9.7",
     "svg2ttf": "^6.1.0",
     "ttf2woff": "^3.0.0",
-    "typescript": "~5.9"
+    "typescript": "~5.9",
+    "typescript-eslint": "^8.70.0"
   }
 }

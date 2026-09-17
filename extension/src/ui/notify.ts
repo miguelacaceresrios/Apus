@@ -28,13 +28,15 @@ export class Notifier {
       const fix = fixLabel(trouble);
       const showLog = vscode.l10n.t('Show Log');
       const actions = fix ? [fix, showLog] : [showLog];
-      void vscode.window.showWarningMessage(vscode.l10n.t('apus · {0}: {1}', repo.name, troubleText(trouble, repo, flight)), ...actions).then((answer) => {
-        if (answer === showLog) {
-          this.log.show(true);
-        } else if (answer === fix) {
-          void vscode.commands.executeCommand('apus.fixLast', repo.key);
-        }
-      });
+      void vscode.window
+        .showWarningMessage(vscode.l10n.t('apus · {0}: {1}', repo.name, troubleText(trouble, repo, flight)), ...actions)
+        .then((answer) => {
+          if (answer === showLog) {
+            this.log.show(true);
+          } else if (answer === fix) {
+            void vscode.commands.executeCommand('apus.fixLast', repo.key);
+          }
+        });
       return;
     }
 
@@ -62,7 +64,9 @@ export class Notifier {
         await vscode.env.openExternal(vscode.Uri.parse(url));
       } else if (answer === mute) {
         await vscode.workspace.getConfiguration(SECTION).update('notifications', 'errors', vscode.ConfigurationTarget.Global);
-        void vscode.window.showInformationMessage(vscode.l10n.t('apus: from now on you will only be notified when something fails. You can change this in Rules.'));
+        void vscode.window.showInformationMessage(
+          vscode.l10n.t('apus: from now on you will only be notified when something fails. You can change this in Rules.'),
+        );
       }
     });
   }
@@ -75,17 +79,15 @@ export class Notifier {
     const locate = vscode.l10n.t('Locate Folder…');
     const forget = vscode.l10n.t('Forget');
     const entry = repo.asLost();
-    void vscode.window.showWarningMessage(
-      vscode.l10n.t('apus · {0}: the folder no longer exists ({1}).', repo.name, tildify(entry.path)),
-      locate,
-      forget,
-    ).then((answer) => {
-      if (answer === locate) {
-        void vscode.commands.executeCommand('apus.relocate', entry);
-      } else if (answer === forget) {
-        void vscode.commands.executeCommand('apus.forget', entry);
-      }
-    });
+    void vscode.window
+      .showWarningMessage(vscode.l10n.t('apus · {0}: the folder no longer exists ({1}).', repo.name, tildify(entry.path)), locate, forget)
+      .then((answer) => {
+        if (answer === locate) {
+          void vscode.commands.executeCommand('apus.relocate', entry);
+        } else if (answer === forget) {
+          void vscode.commands.executeCommand('apus.forget', entry);
+        }
+      });
   }
 
   /** Un auto-commit no subió nada: la revisión encontró algo. Se avisa una vez por cada cosa nueva. */
@@ -109,13 +111,18 @@ export class Notifier {
   /** En la carpeta ahora hay otro repo: apus dejó de vigilarla. */
   replaced(repo: RepoController): void {
     const watch = vscode.l10n.t('Watch');
-    void vscode.window.showInformationMessage(
-      vscode.l10n.t('apus · {0}: this folder now holds a different repository than the one you watched, so apus stopped watching it.', repo.name),
-      watch,
-    ).then((answer) => {
-      if (answer === watch) {
-        void repo.setWatching(true);
-      }
-    });
+    void vscode.window
+      .showInformationMessage(
+        vscode.l10n.t(
+          'apus · {0}: this folder now holds a different repository than the one you watched, so apus stopped watching it.',
+          repo.name,
+        ),
+        watch,
+      )
+      .then((answer) => {
+        if (answer === watch) {
+          void repo.setWatching(true);
+        }
+      });
   }
 }

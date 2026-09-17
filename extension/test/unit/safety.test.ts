@@ -10,7 +10,15 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { initRepo } from '../../src/core/git';
 import {
-  addToGitignore, checkPending, gitignoreEntry, parsePatch, parseStatus, scanLines, scanText, stopTracking, type Finding,
+  addToGitignore,
+  checkPending,
+  gitignoreEntry,
+  parsePatch,
+  parseStatus,
+  scanLines,
+  scanText,
+  stopTracking,
+  type Finding,
 } from '../../src/core/safety';
 
 const GIT = 'git';
@@ -54,9 +62,10 @@ async function write(root: string, file: string, content: string | Buffer): Prom
   await fs.writeFile(path.join(root, file), content);
 }
 
-const brief = (findings: Finding[]) => findings
-  .map((f) => `${f.rule} ${f.path}${f.line ? `:${f.line}` : ''}${f.tracked ? ' (tracked)' : ''}${f.commit ? ' @commit' : ''}`)
-  .sort();
+const brief = (findings: Finding[]) =>
+  findings
+    .map((f) => `${f.rule} ${f.path}${f.line ? `:${f.line}` : ''}${f.tracked ? ' (tracked)' : ''}${f.commit ? ' @commit' : ''}`)
+    .sort();
 
 const lines = (...text: string[]) => text.join('\n');
 
@@ -70,9 +79,10 @@ test('scanText reconoce los formatos conocidos', () => {
     `ANTHROPIC_API_KEY=${fake.anthropic}`,
     `DATABASE_URL=${fake.urlPassword}`,
   );
-  assert.deepEqual(scanText(text).map((h) => `${h.rule}:${h.line}`), [
-    'githubToken:2', 'awsKey:3', 'privateKey:4', 'openaiKey:5', 'anthropicKey:6', 'urlPassword:7',
-  ]);
+  assert.deepEqual(
+    scanText(text).map((h) => `${h.rule}:${h.line}`),
+    ['githubToken:2', 'awsKey:3', 'privateKey:4', 'openaiKey:5', 'anthropicKey:6', 'urlPassword:7'],
+  );
 });
 
 test('scanText no avisa por ejemplos de documentación', () => {
@@ -144,7 +154,15 @@ test('parsePatch: números de línea, commits, y un "+++" que es contenido', () 
     '',
   );
   assert.deepEqual(parsePatch(diff), [
-    { commit: 'abc1234', path: 'a.txt', added: [{ line: 2, text: '+++ esto es contenido' }, { line: 3, text: 'segunda' }, { line: 7, text: 'nueva' }] },
+    {
+      commit: 'abc1234',
+      path: 'a.txt',
+      added: [
+        { line: 2, text: '+++ esto es contenido' },
+        { line: 3, text: 'segunda' },
+        { line: 7, text: 'nueva' },
+      ],
+    },
     { commit: 'abc1234', path: 'b "c".txt', added: [{ line: 1, text: 'x' }] },
     { commit: 'def5678', path: 'a.txt', added: [{ line: 1, text: 'UNO' }] },
   ]);
@@ -180,12 +198,7 @@ test('checkPending revisa exactamente lo que subiría apus', async () => {
 
   const { findings, partial } = await checkPending(GIT, root, { maxFileBytes: 1000 });
   assert.equal(partial, false);
-  assert.deepEqual(brief(findings), [
-    'awsKey src/keys.ts:2',
-    'envFile .env',
-    'largeFile data.bin',
-    'urlPassword README.md:3 (tracked)',
-  ]);
+  assert.deepEqual(brief(findings), ['awsKey src/keys.ts:2', 'envFile .env', 'largeFile data.bin', 'urlPassword README.md:3 (tracked)']);
 });
 
 test('checkPending revisa los commits que todavía no se subieron', async () => {
@@ -223,11 +236,7 @@ test('checkPending en un repo sin commits, y con avisos permitidos', async () =>
   git(root, 'add', 'app.ts');
 
   const all = await checkPending(GIT, root, { maxFileBytes: 1_000_000 });
-  assert.deepEqual(brief(all.findings), [
-    'anthropicKey app.ts:1 (tracked)',
-    'privateKey id_ed25519:1',
-    'sshKey id_ed25519',
-  ]);
+  assert.deepEqual(brief(all.findings), ['anthropicKey app.ts:1 (tracked)', 'privateKey id_ed25519:1', 'sshKey id_ed25519']);
 
   const allowed = await checkPending(GIT, root, { maxFileBytes: 1_000_000, isAllowed: (f) => f.path === 'app.ts' });
   assert.deepEqual(brief(allowed.findings), ['privateKey id_ed25519:1', 'sshKey id_ed25519']);

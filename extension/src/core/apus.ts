@@ -34,6 +34,7 @@ export interface Flight {
 }
 
 const FLIGHT_TIMEOUT_MS = 5 * 60_000;
+// eslint-disable-next-line no-control-regex -- los colores de la terminal empiezan con ESC, a propósito.
 const ANSI = /\x1b\[[0-9;]*m/g;
 
 export function autoMessage(template: string, date: Date): string {
@@ -105,7 +106,10 @@ export function parseFlight(code: number, stderr: string, stdout = ''): Flight {
     // Con código 3 el commit ya quedó hecho y lo que falló fue el push.
     committed: ran('commit') && (code === ExitCode.ok || code === ExitCode.push),
     pushed: ran('push') && code === ExitCode.ok,
-    output: [stdout, text].filter((s) => s.trim()).join('\n').trimEnd(),
+    output: [stdout, text]
+      .filter((s) => s.trim())
+      .join('\n')
+      .trimEnd(),
   };
 }
 
@@ -130,7 +134,11 @@ export function diagnose(flight: Flight): Trouble | undefined {
   }
   // Antes que "no encontrado": con SSH, un problema de clave también dice
   // "Could not read from remote repository".
-  if (/Authentication failed|Permission denied|could not read (Username|Password)|terminal prompts disabled|Invalid username or (password|token)/i.test(text)) {
+  if (
+    /Authentication failed|Permission denied|could not read (Username|Password)|terminal prompts disabled|Invalid username or (password|token)/i.test(
+      text,
+    )
+  ) {
     return 'auth';
   }
   if (/Repository not found|repository '[^']*' not found|does not appear to be a git repository|remote: Not Found/i.test(text)) {

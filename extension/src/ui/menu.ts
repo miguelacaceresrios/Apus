@@ -13,7 +13,10 @@ interface Action extends vscode.QuickPickItem {
 }
 
 const separator = (label = ''): Action => ({ label, kind: vscode.QuickPickItemKind.Separator });
-const run = (command: string, ...args: unknown[]) => () => vscode.commands.executeCommand(command, ...args);
+const run =
+  (command: string, ...args: unknown[]) =>
+  () =>
+    vscode.commands.executeCommand(command, ...args);
 
 /**
  * El menú del clic en la barra o en un repo de la vista. Primero lo que se hace
@@ -24,8 +27,16 @@ export async function showMenu(registry: Registry, repo: RepoController): Promis
 
   if (repo.missing) {
     items.push(
-      { label: `$(search) ${vscode.l10n.t('Locate Folder…')}`, description: tildify(repo.root.fsPath), run: run('apus.relocate', repo.asLost()) },
-      { label: `$(close) ${vscode.l10n.t('Forget')}`, description: vscode.l10n.t('take it off the list'), run: run('apus.forget', repo.asLost()) },
+      {
+        label: `$(search) ${vscode.l10n.t('Locate Folder…')}`,
+        description: tildify(repo.root.fsPath),
+        run: run('apus.relocate', repo.asLost()),
+      },
+      {
+        label: `$(close) ${vscode.l10n.t('Forget')}`,
+        description: vscode.l10n.t('take it off the list'),
+        run: run('apus.forget', repo.asLost()),
+      },
     );
   } else {
     if (repo.held) {
@@ -42,27 +53,46 @@ export async function showMenu(registry: Registry, repo: RepoController): Promis
         run: run('apus.fixLast', repo.key),
       });
     } else if (!repo.remote) {
-      items.push({ label: `$(plug) ${vscode.l10n.t('Connect URL…')}`, description: vscode.l10n.t('needed to push'), run: run('apus.changeUrl', repo.key) });
+      items.push({
+        label: `$(plug) ${vscode.l10n.t('Connect URL…')}`,
+        description: vscode.l10n.t('needed to push'),
+        run: run('apus.changeUrl', repo.key),
+      });
     }
     items.push(
       { label: `$(cloud-upload) ${vscode.l10n.t('Push Now')}`, description: 'add + commit + push', run: run('apus.pushNow', repo.key) },
       repo.watching
-        ? { label: `$(eye-closed) ${vscode.l10n.t('Pause')}`, description: vscode.l10n.t('stop pushing on its own'), run: () => repo.setWatching(false) }
+        ? {
+            label: `$(eye-closed) ${vscode.l10n.t('Pause')}`,
+            description: vscode.l10n.t('stop pushing on its own'),
+            run: () => repo.setWatching(false),
+          }
         : {
-          label: `$(eye) ${vscode.l10n.t('Watch')}`,
-          description: vscode.l10n.t('push on its own after {0} without changes', duration(repo.config.quietMs)),
-          run: () => repo.setWatching(true),
-        },
+            label: `$(eye) ${vscode.l10n.t('Watch')}`,
+            description: vscode.l10n.t('push on its own after {0} without changes', duration(repo.config.quietMs)),
+            run: () => repo.setWatching(true),
+          },
       {
         label: `$(history) ${vscode.l10n.t('Auto-commits')}`,
-        description: repo.lastAutoAt === undefined ? vscode.l10n.t('none yet') : vscode.l10n.t('last one {0}', formatRelative(repo.lastAutoAt, locale())),
+        description:
+          repo.lastAutoAt === undefined
+            ? vscode.l10n.t('none yet')
+            : vscode.l10n.t('last one {0}', formatRelative(repo.lastAutoAt, locale())),
         run: run('apus.showLog', repo.key),
       },
       separator(vscode.l10n.t('Repository')),
-      { label: `$(folder) ${vscode.l10n.t('Change Folder…')}`, description: tildify(repo.root.fsPath), run: run('apus.changeFolder', repo.key) },
+      {
+        label: `$(folder) ${vscode.l10n.t('Change Folder…')}`,
+        description: tildify(repo.root.fsPath),
+        run: run('apus.changeFolder', repo.key),
+      },
     );
     if (repo.remote) {
-      items.push({ label: `$(link) ${vscode.l10n.t('Change URL…')}`, description: shortUrl(repo.remote.url), run: run('apus.changeUrl', repo.key) });
+      items.push({
+        label: `$(link) ${vscode.l10n.t('Change URL…')}`,
+        description: shortUrl(repo.remote.url),
+        run: run('apus.changeUrl', repo.key),
+      });
     }
     if (repo.browseUrl()) {
       items.push({ label: `$(globe) ${vscode.l10n.t('Open in Browser')}`, run: run('apus.openRemote', repo.key) });
@@ -91,7 +121,11 @@ export async function showMenu(registry: Registry, repo: RepoController): Promis
     });
   }
   items.push(
-    { label: `$(settings-gear) ${vscode.l10n.t('Rules')}`, description: vscode.l10n.t('intervals, ignored files, message'), run: run('apus.openSettings') },
+    {
+      label: `$(settings-gear) ${vscode.l10n.t('Rules')}`,
+      description: vscode.l10n.t('intervals, ignored files, message'),
+      run: run('apus.openSettings'),
+    },
     { label: `$(output) ${vscode.l10n.t('Show Log')}`, run: run('apus.showOutput') },
     { label: `$(book) ${vscode.l10n.t('Get Started')}`, run: run('apus.getStarted') },
   );

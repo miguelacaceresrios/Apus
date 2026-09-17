@@ -101,7 +101,10 @@ export class FolderList {
 
   async forget(fsPath: string): Promise<void> {
     const key = repoKey(fsPath);
-    await this.memento.update(FolderList.ADDED, this.added.filter((p) => repoKey(p) !== key));
+    await this.memento.update(
+      FolderList.ADDED,
+      this.added.filter((p) => repoKey(p) !== key),
+    );
   }
 
   private async setHidden(key: string, hidden: boolean): Promise<void> {
@@ -143,7 +146,10 @@ export class AllowList {
   }
 
   async remove(repo: string, keys: readonly string[]): Promise<void> {
-    await this.save(repo, this.list(repo).filter((k) => !keys.includes(k)));
+    await this.save(
+      repo,
+      this.list(repo).filter((k) => !keys.includes(k)),
+    );
   }
 
   private async save(repo: string, keys: string[]): Promise<void> {

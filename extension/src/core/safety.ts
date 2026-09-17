@@ -16,10 +16,24 @@ import { runProcess } from './process';
 
 export type RuleId =
   // Por el nombre del archivo.
-  | 'envFile' | 'sshKey' | 'keyStore' | 'credentials' | 'terraformState' | 'passwordDb'
+  | 'envFile'
+  | 'sshKey'
+  | 'keyStore'
+  | 'credentials'
+  | 'terraformState'
+  | 'passwordDb'
   // Por lo que tiene adentro.
-  | 'privateKey' | 'githubToken' | 'gitlabToken' | 'awsKey' | 'slackToken' | 'stripeKey'
-  | 'googleKey' | 'anthropicKey' | 'openaiKey' | 'npmToken' | 'urlPassword'
+  | 'privateKey'
+  | 'githubToken'
+  | 'gitlabToken'
+  | 'awsKey'
+  | 'slackToken'
+  | 'stripeKey'
+  | 'googleKey'
+  | 'anthropicKey'
+  | 'openaiKey'
+  | 'npmToken'
+  | 'urlPassword'
   // Por el tamaño.
   | 'largeFile';
 
@@ -88,13 +102,12 @@ const NAME_RULES: { rule: RuleId; test: (name: string, relative: string) => bool
   {
     rule: 'credentials',
     test: (n, rel) =>
-      !EXAMPLE_NAME.test(n) && (
-        /^(\.netrc|_netrc|\.git-credentials|\.pgpass|\.pypirc|\.htpasswd|\.dockercfg|credentials\.json)$/i.test(n) ||
+      !EXAMPLE_NAME.test(n) &&
+      (/^(\.netrc|_netrc|\.git-credentials|\.pgpass|\.pypirc|\.htpasswd|\.dockercfg|credentials\.json)$/i.test(n) ||
         /^client_secret.*\.json$/i.test(n) ||
         /service.?account.*\.json$/i.test(n) ||
         /^secrets?\.(json|ya?ml|toml|ini|txt)$/i.test(n) ||
-        /(^|\/)\.aws\/credentials$/.test(rel)
-      ),
+        /(^|\/)\.aws\/credentials$/.test(rel)),
   },
   { rule: 'terraformState', test: (n) => /\.tfstate(\.backup)?$/i.test(n) },
   { rule: 'passwordDb', test: (n) => /\.(kdbx|kdb|agilekeychain|1pif)$/i.test(n) },
@@ -153,7 +166,10 @@ async function checkChanges(git: string, root: string, options: CheckOptions): P
   // Las líneas nuevas de lo que git ya sigue. Sin commits todavía, no hay con qué comparar: se lee todo.
   let patch: Map<string, AddedLine[]> | undefined;
   if (entries.some((e) => e.tracked)) {
-    const diff = await runProcess(git, ['-c', 'core.quotepath=false', 'diff', 'HEAD', ...PATCH_FLAGS], { cwd: root, maxOutput: OUTPUT_LIMIT });
+    const diff = await runProcess(git, ['-c', 'core.quotepath=false', 'diff', 'HEAD', ...PATCH_FLAGS], {
+      cwd: root,
+      maxOutput: OUTPUT_LIMIT,
+    });
     if (diff.code === 0) {
       patch = new Map(parsePatch(diff.stdout).map((f) => [f.path, f.added]));
       partial ||= diff.stdout.length >= OUTPUT_LIMIT;
@@ -215,8 +231,15 @@ async function checkChanges(git: string, root: string, options: CheckOptions): P
 async function checkUnpushed(git: string, root: string): Promise<CheckResult> {
   const range = ['HEAD', '--not', '--remotes', `--max-count=${MAX_UNPUSHED_COMMITS + 1}`];
   const [names, patches] = await Promise.all([
-    runProcess(git, ['-c', 'core.quotepath=false', 'log', '--format=commit %h', '--name-only', '--diff-filter=AM', '--no-renames', ...range], { cwd: root, maxOutput: OUTPUT_LIMIT }),
-    runProcess(git, ['-c', 'core.quotepath=false', 'log', '--format=commit %h', '-p', ...PATCH_FLAGS, ...range], { cwd: root, maxOutput: OUTPUT_LIMIT }),
+    runProcess(
+      git,
+      ['-c', 'core.quotepath=false', 'log', '--format=commit %h', '--name-only', '--diff-filter=AM', '--no-renames', ...range],
+      { cwd: root, maxOutput: OUTPUT_LIMIT },
+    ),
+    runProcess(git, ['-c', 'core.quotepath=false', 'log', '--format=commit %h', '-p', ...PATCH_FLAGS, ...range], {
+      cwd: root,
+      maxOutput: OUTPUT_LIMIT,
+    }),
   ]);
   // Sin commits todavía, git log falla: no hay historia que revisar.
   if (names.code !== 0 || patches.code !== 0) {
@@ -236,7 +259,9 @@ async function checkUnpushed(git: string, root: string): Promise<CheckResult> {
     }
   }
   for (const file of parsePatch(patches.stdout)) {
-    findings.push(...scanLines(file.added).map((hit) => ({ path: file.path, rule: hit.rule, line: hit.line, tracked: true, commit: file.commit })));
+    findings.push(
+      ...scanLines(file.added).map((hit) => ({ path: file.path, rule: hit.rule, line: hit.line, tracked: true, commit: file.commit })),
+    );
   }
   return {
     findings,
@@ -248,9 +273,7 @@ const PATCH_FLAGS = ['--no-color', '--no-ext-diff', '--no-textconv', '--no-renam
 
 function nameFindings(relative: string, where: { tracked: boolean; commit?: string }): Finding[] {
   const name = path.posix.basename(relative);
-  return NAME_RULES
-    .filter(({ test }) => test(name, relative))
-    .map(({ rule }) => ({ path: relative, rule, ...where }));
+  return NAME_RULES.filter(({ test }) => test(name, relative)).map(({ rule }) => ({ path: relative, rule, ...where }));
 }
 
 /** Los secretos en un texto, con el número de línea (empieza en 1). */
@@ -395,9 +418,7 @@ export async function addToGitignore(root: string, relative: string): Promise<vo
 }
 
 export function gitignoreEntry(relative: string): string {
-  const escaped = relative
-    .replace(/[\\*?[\]!#]/g, (c) => `\\${c}`)
-    .replace(/ +$/, (spaces) => spaces.replace(/ /g, '\\ '));
+  const escaped = relative.replace(/[\\*?[\]!#]/g, (c) => `\\${c}`).replace(/ +$/, (spaces) => spaces.replace(/ /g, '\\ '));
   return `/${escaped}`;
 }
 

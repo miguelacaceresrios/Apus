@@ -49,17 +49,13 @@ async function checkConfigured(wanted: string): Promise<BinaryLookup> {
     // escribirlo. Si al lado está apus.exe, usamos ese.
     if (path.basename(file).toLowerCase() === 'apusw.exe') {
       const sibling = path.join(path.dirname(file), 'apus.exe');
-      return (await isExecutable(sibling))
-        ? { ok: true, path: sibling }
-        : { ok: false, problem: 'windowBinary', path: file };
+      return (await isExecutable(sibling)) ? { ok: true, path: sibling } : { ok: false, problem: 'windowBinary', path: file };
     }
     if (path.extname(file).toLowerCase() !== '.exe') {
       return { ok: false, problem: 'notExe', path: file };
     }
   }
-  return (await isExecutable(file))
-    ? { ok: true, path: file }
-    : { ok: false, problem: 'missing', path: file };
+  return (await isExecutable(file)) ? { ok: true, path: file } : { ok: false, problem: 'missing', path: file };
 }
 
 function pathEntries(env: NodeJS.ProcessEnv): string[] {

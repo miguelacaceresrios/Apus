@@ -41,16 +41,29 @@ function setup(quietMs = 1000, minGapMs = 5000) {
   const scheduler = new FlightScheduler(
     () => {
       flights.push(clock.now());
-      return hold ? new Promise<void>((r) => { release = r; }) : Promise.resolve();
+      return hold
+        ? new Promise<void>((r) => {
+            release = r;
+          })
+        : Promise.resolve();
     },
     { quietMs, minGapMs },
-    (e) => { throw e; },
+    (e) => {
+      throw e;
+    },
     clock,
   );
   return {
-    clock, flights, scheduler,
-    holdFlights: () => { hold = true; },
-    finishFlight: async () => { release?.(); await new Promise((r) => setImmediate(r)); },
+    clock,
+    flights,
+    scheduler,
+    holdFlights: () => {
+      hold = true;
+    },
+    finishFlight: async () => {
+      release?.();
+      await new Promise((r) => setImmediate(r));
+    },
   };
 }
 

@@ -21,7 +21,10 @@ export class StatusBar implements vscode.Disposable {
   private readonly subscriptions: vscode.Disposable[];
   private timer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(private readonly registry: Registry, private readonly binary: ApusBinary) {
+  constructor(
+    private readonly registry: Registry,
+    private readonly binary: ApusBinary,
+  ) {
     this.item.name = 'Apus';
     this.subscriptions = [registry.onDidChange(() => this.render()), binary.onDidChange(() => this.render())];
     this.render();
@@ -38,8 +41,16 @@ export class StatusBar implements vscode.Disposable {
       const md = trustedMarkdown();
       md.appendMarkdown('**apus** — ');
       md.appendText(binaryProblem(lookup.problem, lookup.path));
-      md.appendMarkdown(`\n\n[$(tools) ${vscode.l10n.t('Fix…')}](command:apus.fixBinary) &nbsp;·&nbsp; [$(book) ${vscode.l10n.t('Get Started')}](command:apus.getStarted)`);
-      this.show(`$(${LOGO}) $(warning)`, md, { command: 'apus.fixBinary', title: vscode.l10n.t('Fix…') }, true, vscode.l10n.t('apus is not available'));
+      md.appendMarkdown(
+        `\n\n[$(tools) ${vscode.l10n.t('Fix…')}](command:apus.fixBinary) &nbsp;·&nbsp; [$(book) ${vscode.l10n.t('Get Started')}](command:apus.getStarted)`,
+      );
+      this.show(
+        `$(${LOGO}) $(warning)`,
+        md,
+        { command: 'apus.fixBinary', title: vscode.l10n.t('Fix…') },
+        true,
+        vscode.l10n.t('apus is not available'),
+      );
       return;
     }
 

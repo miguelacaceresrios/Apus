@@ -50,7 +50,12 @@ test('withLock pisa un candado abandonado', async () => {
 
 test('withLock suelta el candado aunque la función falle', async () => {
   const file = path.join(await tempDir(), 'apus.lock');
-  await assert.rejects(withLock(file, async () => { throw new Error('boom'); }), /boom/);
+  await assert.rejects(
+    withLock(file, async () => {
+      throw new Error('boom');
+    }),
+    /boom/,
+  );
   await assert.rejects(fs.access(file));
 });
 

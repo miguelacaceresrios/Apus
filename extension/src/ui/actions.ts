@@ -14,9 +14,7 @@ export async function changeUrl(repo: RepoController): Promise<boolean> {
   // Si la URL guardada trae usuario o token, no se muestra: se pega una nueva.
   const withCredentials = current !== undefined && /^[a-z+]+:\/\/[^/@]+@/i.test(current.url);
   const input = await vscode.window.showInputBox({
-    title: current
-      ? vscode.l10n.t('apus · {0} · change URL', repo.name)
-      : vscode.l10n.t('apus · {0} · connect URL', repo.name),
+    title: current ? vscode.l10n.t('apus · {0} · change URL', repo.name) : vscode.l10n.t('apus · {0} · connect URL', repo.name),
     prompt: current
       ? vscode.l10n.t('It pushes to {0} now. Paste the new URL.', shortUrl(current.url))
       : vscode.l10n.t('Paste the URL of the repository to push to. If you create it on GitHub, create it empty, without a README.'),
@@ -51,11 +49,13 @@ export async function changeUrl(repo: RepoController): Promise<boolean> {
     return false;
   }
   const push = vscode.l10n.t('Push Now');
-  void vscode.window.showInformationMessage(vscode.l10n.t('apus · {0} pushes to {1}.', repo.name, shortUrl(check.url)), push).then((answer) => {
-    if (answer === push) {
-      void pushNow(repo);
-    }
-  });
+  void vscode.window
+    .showInformationMessage(vscode.l10n.t('apus · {0} pushes to {1}.', repo.name, shortUrl(check.url)), push)
+    .then((answer) => {
+      if (answer === push) {
+        void pushNow(repo);
+      }
+    });
   return true;
 }
 
@@ -68,9 +68,8 @@ export async function pushNow(repo: RepoController): Promise<void> {
   if (!(await repo.readRemote()) && !(await changeUrl(repo))) {
     return;
   }
-  await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: vscode.l10n.t('apus: pushing {0}', repo.name) },
-    () => repo.pushNow(),
+  await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: vscode.l10n.t('apus: pushing {0}', repo.name) }, () =>
+    repo.pushNow(),
   );
 }
 

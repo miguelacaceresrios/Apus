@@ -45,7 +45,7 @@ export async function addFolder(registry: Registry, replace?: Replaced, folder?:
   let message = vscode.l10n.t('apus: {0} is on the list.', repo.name);
   if (old && old.key !== repo.key) {
     const watched = registry.wasWatched(old.key);
-    if ('repo' in replace!) {
+    if (replace && 'repo' in replace) {
       await registry.remove(replace.repo);
     } else {
       await registry.forget(old);
@@ -68,11 +68,13 @@ export async function addFolder(registry: Registry, replace?: Replaced, folder?:
     return repo;
   }
   const actions = repo.watching ? [] : [vscode.l10n.t('Watch')];
-  void vscode.window.showInformationMessage(`${message} ${vscode.l10n.t('It pushes to {0}.', shortUrl(remote.url))}`, ...actions).then((answer) => {
-    if (answer) {
-      void repo.setWatching(true);
-    }
-  });
+  void vscode.window
+    .showInformationMessage(`${message} ${vscode.l10n.t('It pushes to {0}.', shortUrl(remote.url))}`, ...actions)
+    .then((answer) => {
+      if (answer) {
+        void repo.setWatching(true);
+      }
+    });
   return repo;
 }
 
@@ -83,7 +85,11 @@ async function chooseFolder(registry: Registry, replace: Replaced | undefined): 
     const items: FolderItem[] = [
       { label: `$(folder-opened) ${vscode.l10n.t('Choose a folder…')}` },
       { label: vscode.l10n.t('Removed from the list'), kind: vscode.QuickPickItemKind.Separator },
-      ...hidden.map((r) => ({ label: `$(repo) ${path.basename(r.rootUri.fsPath)}`, description: tildify(r.rootUri.fsPath), folder: r.rootUri.fsPath })),
+      ...hidden.map((r) => ({
+        label: `$(repo) ${path.basename(r.rootUri.fsPath)}`,
+        description: tildify(r.rootUri.fsPath),
+        folder: r.rootUri.fsPath,
+      })),
     ];
     const picked = await vscode.window.showQuickPick(items, { title: vscode.l10n.t('apus · add a folder') });
     if (!picked) {
@@ -95,11 +101,11 @@ async function chooseFolder(registry: Registry, replace: Replaced | undefined): 
   }
 
   const current = replace && ('repo' in replace ? replace.repo.root.fsPath : replace.lost.path);
-  const start = await existingAncestor(current ? path.dirname(current) : registry.all[0] ? path.dirname(registry.all[0].root.fsPath) : undefined);
+  const start = await existingAncestor(
+    current ? path.dirname(current) : registry.all[0] ? path.dirname(registry.all[0].root.fsPath) : undefined,
+  );
   const picked = await vscode.window.showOpenDialog({
-    title: current
-      ? vscode.l10n.t('apus · new folder for {0}', path.basename(current))
-      : vscode.l10n.t('apus · add a folder'),
+    title: current ? vscode.l10n.t('apus · new folder for {0}', path.basename(current)) : vscode.l10n.t('apus · add a folder'),
     openLabel: vscode.l10n.t('Use This Folder'),
     canSelectFiles: false,
     canSelectFolders: true,
@@ -112,10 +118,11 @@ async function chooseFolder(registry: Registry, replace: Replaced | undefined): 
 /** La carpeta que de verdad hay que sumar: la raíz del repo, sin repos adentro. Undefined si se cancela. */
 async function resolveRoot(registry: Registry, dir: string): Promise<string | undefined> {
   const git = registry.gitPath;
-  const look = (folder: string) => vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: vscode.l10n.t('apus: looking at {0}…', path.basename(folder)) },
-    () => inspectFolder(git, folder),
-  );
+  const look = (folder: string) =>
+    vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Window, title: vscode.l10n.t('apus: looking at {0}…', path.basename(folder)) },
+      () => inspectFolder(git, folder),
+    );
 
   let folder = dir;
   let inspection = await look(folder);
@@ -149,7 +156,14 @@ async function resolveRoot(registry: Registry, dir: string): Promise<string | un
       const init = vscode.l10n.t('Initialize');
       const answer = await vscode.window.showInformationMessage(
         vscode.l10n.t('{0} is not a git repository yet. Initialize it?', path.basename(folder)),
-        { modal: true, detail: vscode.l10n.t('apus runs git init in {0}, with the branch {1}. Then you paste the URL to push to.', tildify(folder), DEFAULT_BRANCH) },
+        {
+          modal: true,
+          detail: vscode.l10n.t(
+            'apus runs git init in {0}, with the branch {1}. Then you paste the URL to push to.',
+            tildify(folder),
+            DEFAULT_BRANCH,
+          ),
+        },
         init,
       );
       if (answer !== init) {
@@ -158,7 +172,9 @@ async function resolveRoot(registry: Registry, dir: string): Promise<string | un
       try {
         await initRepo(git, folder, DEFAULT_BRANCH);
       } catch (e) {
-        void vscode.window.showErrorMessage(vscode.l10n.t('apus: could not initialize {0}: {1}', path.basename(folder), e instanceof Error ? e.message : String(e)));
+        void vscode.window.showErrorMessage(
+          vscode.l10n.t('apus: could not initialize {0}: {1}', path.basename(folder), e instanceof Error ? e.message : String(e)),
+        );
         return undefined;
       }
       return folder;

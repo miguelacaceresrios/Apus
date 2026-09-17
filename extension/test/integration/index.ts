@@ -25,7 +25,7 @@ export async function run(): Promise<void> {
   const ws = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
   const fixture = path.dirname(ws);
   const results: string[] = [];
-  const step = async (name: string, fn: () => Promise<void>) => {
+  const step = async (name: string, fn: () => void | Promise<void>) => {
     const started = Date.now();
     try {
       await fn();
@@ -36,7 +36,8 @@ export async function run(): Promise<void> {
     await fs.writeFile(path.join(fixture, 'results.txt'), results.join('\n') + '\n');
   };
 
-  const api = (await vscode.extensions.getExtension<TestHandles>(EXTENSION)!.activate())!;
+  const api = await vscode.extensions.getExtension<TestHandles>(EXTENSION)!.activate();
+  assert.ok(api, 'la extensión no devolvió las piezas: ¿corre en modo de pruebas?');
   const { registry, view, watchStore } = api;
   const find = (folder: string) => registry.all.find((c) => c.key === repoKey(folder));
   const get = (folder: string) => {
@@ -46,15 +47,28 @@ export async function run(): Promise<void> {
   };
   const details = (c: RepoController) => {
     const node = view.getChildren().find((n) => n.kind === 'repo' && n.repo === c)!;
-    return Object.fromEntries(view.getChildren(node).map((n: Node) => {
-      const item = view.getTreeItem(n);
-      return [(n as { field: string }).field, { label: String(item.label), description: String(item.description ?? ''), command: item.command?.command }];
-    }));
+    return Object.fromEntries(
+      view.getChildren(node).map((n: Node) => {
+        const item = view.getTreeItem(n);
+        const label = typeof item.label === 'string' ? item.label : (item.label?.label ?? '');
+        const description = typeof item.description === 'string' ? item.description : '';
+        return [(n as { field: string }).field, { label, description, command: item.command?.command }];
+      }),
+    );
   };
 
   await step('los comandos existen', async () => {
     const all = await vscode.commands.getCommands(true);
-    for (const id of ['apus.addFolder', 'apus.changeFolder', 'apus.changeUrl', 'apus.remove', 'apus.relocate', 'apus.forget', 'apus.fixLast', 'apus.menu']) {
+    for (const id of [
+      'apus.addFolder',
+      'apus.changeFolder',
+      'apus.changeUrl',
+      'apus.remove',
+      'apus.relocate',
+      'apus.forget',
+      'apus.fixLast',
+      'apus.menu',
+    ]) {
       assert.ok(all.includes(id), id);
     }
   });
@@ -64,7 +78,7 @@ export async function run(): Promise<void> {
     await waitFor(() => get(path.join(ws, 'ok')).remote !== undefined, 15_000, 'remoto de ok');
   });
 
-  await step('un repo sin remoto se ve "sin conectar" y no hace auto-commit', async () => {
+  await step('un repo sin remoto se ve "sin conectar" y no hace auto-commit', () => {
     const solo = get(path.join(ws, 'solo'));
     assert.equal(solo.blocked, 'noRemote');
     assert.equal(solo.remote, undefined);
@@ -90,7 +104,10 @@ export async function run(): Promise<void> {
     assert.equal(ok.lastError, undefined, output(ok));
     const log = execFileSync('git', ['log', '--oneline', '-1', 'main'], { cwd: path.join(fixture, 'remotes', 'ok.git'), encoding: 'utf8' });
     assert.match(log, /\S/);
-    const remoteFiles = execFileSync('git', ['ls-tree', '--name-only', 'main'], { cwd: path.join(fixture, 'remotes', 'ok.git'), encoding: 'utf8' });
+    const remoteFiles = execFileSync('git', ['ls-tree', '--name-only', 'main'], {
+      cwd: path.join(fixture, 'remotes', 'ok.git'),
+      encoding: 'utf8',
+    });
     assert.match(remoteFiles, /nuevo\.txt/);
   });
 
@@ -144,7 +161,10 @@ export async function run(): Promise<void> {
     await fs.writeFile(path.join(folder, '.env'), 'API_PASSWORD=hunter2\n');
     await fs.writeFile(path.join(folder, 'notas.md'), 'algo\n');
     await waitFor(() => repo.held !== undefined, 60_000, 'auto-commit frenado');
-    assert.deepEqual(repo.held!.map((f) => `${f.rule} ${f.path}`), ['envFile .env']);
+    assert.deepEqual(
+      repo.held!.map((f) => `${f.rule} ${f.path}`),
+      ['envFile .env'],
+    );
     assert.ok(details(repo).held);
     assert.equal(commits(), '1', 'no tendría que haber subido nada');
 

@@ -37,7 +37,10 @@ export class ReposView implements vscode.TreeDataProvider<Node>, vscode.Disposab
 
   readonly onDidChangeTreeData = this.emitter.event;
 
-  constructor(private readonly registry: Registry, private readonly binary: ApusBinary) {
+  constructor(
+    private readonly registry: Registry,
+    private readonly binary: ApusBinary,
+  ) {
     this.view = vscode.window.createTreeView('apus.repos', { treeDataProvider: this, showCollapseAll: true });
     this.subscriptions = [
       registry.onDidChange(() => this.refresh()),
@@ -134,11 +137,7 @@ export class ReposView implements vscode.TreeDataProvider<Node>, vscode.Disposab
     item.id = `repo:${c.key}`;
     item.description = summary(c);
     item.iconPath = new vscode.ThemeIcon(icon, color ? new vscode.ThemeColor(color) : undefined);
-    item.contextValue = [
-      'apusRepo',
-      c.missing ? 'missing' : c.watching ? 'watching' : 'paused',
-      c.browseUrl() ? 'web' : '',
-    ].join(';');
+    item.contextValue = ['apusRepo', c.missing ? 'missing' : c.watching ? 'watching' : 'paused', c.browseUrl() ? 'web' : ''].join(';');
     item.accessibilityInformation = {
       label: `${c.name}: ${item.description}${needsAttention(c) ? `. ${vscode.l10n.t('Needs your attention.')}` : ''}`,
     };
@@ -236,9 +235,8 @@ function detailItem(c: RepoController, field: Field): vscode.TreeItem {
         item.tooltip = `${shortUrl(c.remote.url)} (${c.remote.name})\n${vscode.l10n.t('Click to change where it pushes.')}`;
         item.contextValue = c.browseUrl() ? 'apus.detail.url;web' : 'apus.detail.url';
       } else {
-        item.description = c.remoteNames.length > 1
-          ? vscode.l10n.t('{0} remotes and none is origin', c.remoteNames.length)
-          : vscode.l10n.t('not connected');
+        item.description =
+          c.remoteNames.length > 1 ? vscode.l10n.t('{0} remotes and none is origin', c.remoteNames.length) : vscode.l10n.t('not connected');
         item.iconPath = new vscode.ThemeIcon('debug-disconnect', warningColor);
         item.tooltip = vscode.l10n.t('Click to connect the URL to push to.');
       }
@@ -260,9 +258,8 @@ function detailItem(c: RepoController, field: Field): vscode.TreeItem {
 
     case 'history':
       item.label = vscode.l10n.t('Auto-commits');
-      item.description = c.lastAutoAt === undefined
-        ? vscode.l10n.t('none yet')
-        : vscode.l10n.t('last one {0}', formatRelative(c.lastAutoAt, locale()));
+      item.description =
+        c.lastAutoAt === undefined ? vscode.l10n.t('none yet') : vscode.l10n.t('last one {0}', formatRelative(c.lastAutoAt, locale()));
       item.iconPath = new vscode.ThemeIcon('history');
       item.tooltip = vscode.l10n.t('Click to see them.');
       item.command = command('apus.showLog', vscode.l10n.t('Auto-commits'));

@@ -25,7 +25,11 @@ export class Registry implements vscode.Disposable {
 
   readonly onDidChange = this.emitter.event;
 
-  constructor(private readonly git: GitAPI, private readonly services: RepoServices, private readonly folders: FolderList) {
+  constructor(
+    private readonly git: GitAPI,
+    private readonly services: RepoServices,
+    private readonly folders: FolderList,
+  ) {
     for (const repo of git.repositories) {
       this.open(repo);
     }
@@ -55,9 +59,7 @@ export class Registry implements vscode.Disposable {
 
   /** Vigilados primero, después alfabético. */
   get all(): RepoController[] {
-    return [...this.controllers.values()].sort(
-      (a, b) => Number(b.watching) - Number(a.watching) || a.name.localeCompare(b.name),
-    );
+    return [...this.controllers.values()].sort((a, b) => Number(b.watching) - Number(a.watching) || a.name.localeCompare(b.name));
   }
 
   get lost(): LostFolder[] {
@@ -273,7 +275,10 @@ export class Registry implements vscode.Disposable {
     }
     const controller = new RepoController(repo, this.services);
     this.controllers.set(key, controller);
-    this.listeners.set(key, controller.onDidChange(() => this.changed()));
+    this.listeners.set(
+      key,
+      controller.onDidChange(() => this.changed()),
+    );
     this.lostFolders.delete(key);
     this.services.log.info(`repository opened: ${repo.rootUri.fsPath}`);
     this.changed();

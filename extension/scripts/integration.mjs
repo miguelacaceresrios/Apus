@@ -21,7 +21,13 @@ const apus = process.env.APUS_EXE;
 const fixture = mkdtempSync(join(tmpdir(), 'apus-affinis-it-'));
 const ws = join(fixture, 'ws');
 const remotes = join(fixture, 'remotes');
-const env = { ...process.env, GIT_AUTHOR_NAME: 'apus', GIT_AUTHOR_EMAIL: 'apus@test', GIT_COMMITTER_NAME: 'apus', GIT_COMMITTER_EMAIL: 'apus@test' };
+const env = {
+  ...process.env,
+  GIT_AUTHOR_NAME: 'apus',
+  GIT_AUTHOR_EMAIL: 'apus@test',
+  GIT_COMMITTER_NAME: 'apus',
+  GIT_COMMITTER_EMAIL: 'apus@test',
+};
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, env, stdio: 'pipe' });
 
 function repo(dir, remote) {
@@ -48,16 +54,23 @@ repo(join(ws, 'viper', 'viper'));
 
 const profile = join(fixture, 'profile');
 mkdirSync(join(profile, 'User'), { recursive: true });
-writeFileSync(join(profile, 'User', 'settings.json'), JSON.stringify({
-  ...(apus ? { 'apus.path': resolve(apus) } : {}),
-  'apus.notifications': 'errors',
-  // Auto-commits rápidos, para probarlos sin esperar minutos.
-  'apus.watchInterval': 5,
-  'apus.minInterval': 0,
-  'git.openRepositoryInParentFolders': 'never',
-  'workbench.startupEditor': 'none',
-  'telemetry.telemetryLevel': 'off',
-}, null, 2));
+writeFileSync(
+  join(profile, 'User', 'settings.json'),
+  JSON.stringify(
+    {
+      ...(apus ? { 'apus.path': resolve(apus) } : {}),
+      'apus.notifications': 'errors',
+      // Auto-commits rápidos, para probarlos sin esperar minutos.
+      'apus.watchInterval': 5,
+      'apus.minInterval': 0,
+      'git.openRepositoryInParentFolders': 'never',
+      'workbench.startupEditor': 'none',
+      'telemetry.telemetryLevel': 'off',
+    },
+    null,
+    2,
+  ),
+);
 
 execFileSync('npx', ['tsc', '-p', 'tsconfig.integration.json'], { cwd: root, stdio: 'inherit', shell: windows });
 

@@ -3,8 +3,16 @@ import * as vscode from 'vscode';
 import { readRepoConfig, type RepoConfig, type SafetyConfig } from '../config';
 import { autoMessage, flyApus, type Flight } from '../core/apus';
 import {
-  absoluteGitDir, autoCommits, browseUrl, lastAutoCommitAt, lastPushAt, readRemotes, rootCommits, setRemoteUrl,
-  type AutoCommit, type Remote,
+  absoluteGitDir,
+  autoCommits,
+  browseUrl,
+  lastAutoCommitAt,
+  lastPushAt,
+  readRemotes,
+  rootCommits,
+  setRemoteUrl,
+  type AutoCommit,
+  type Remote,
 } from '../core/git';
 import { compileGlobs } from '../core/glob';
 import { withLock } from '../core/lock';
@@ -113,7 +121,10 @@ export class RepoController implements vscode.Disposable {
 
   readonly onDidChange = this.emitter.event;
 
-  constructor(private readonly repo: Repository, private readonly services: RepoServices) {
+  constructor(
+    private readonly repo: Repository,
+    private readonly services: RepoServices,
+  ) {
     this.root = repo.rootUri;
     this.name = path.basename(repo.rootUri.fsPath);
     this.key = repoKey(repo.rootUri.fsPath);
@@ -126,36 +137,75 @@ export class RepoController implements vscode.Disposable {
       (e) => services.log.error(`[${this.name}]`, e),
     );
 
-    this.disposables.push(this.emitter, repo.state.onDidChange(() => this.sync()));
+    this.disposables.push(
+      this.emitter,
+      repo.state.onDidChange(() => this.sync()),
+    );
     this.sync();
     void this.checkIdentity();
   }
 
-  get config(): RepoConfig { return this._config; }
-  get watching(): boolean { return this._watching; }
-  get flying(): boolean { return this._flying; }
+  get config(): RepoConfig {
+    return this._config;
+  }
+  get watching(): boolean {
+    return this._watching;
+  }
+  get flying(): boolean {
+    return this._flying;
+  }
   /** Archivos con cambios, cuenten o no para el auto-commit. */
-  get pending(): number { return this._pending; }
+  get pending(): number {
+    return this._pending;
+  }
   /** Archivos con cambios que no están en apus.ignorePatterns. */
-  get relevant(): number { return this._relevant; }
-  get ahead(): number { return this._ahead; }
-  get branch(): string | undefined { return this._branch; }
-  get upstream(): string | undefined { return this._upstream; }
-  get blocked(): BlockReason | undefined { return this._blocked; }
+  get relevant(): number {
+    return this._relevant;
+  }
+  get ahead(): number {
+    return this._ahead;
+  }
+  get branch(): string | undefined {
+    return this._branch;
+  }
+  get upstream(): string | undefined {
+    return this._upstream;
+  }
+  get blocked(): BlockReason | undefined {
+    return this._blocked;
+  }
   /** El remoto al que sube apus, si se puede saber. */
-  get remote(): RemoteInfo | undefined { return this._remote; }
+  get remote(): RemoteInfo | undefined {
+    return this._remote;
+  }
   /** Todos los remotos. Puede haber remotos y no `remote`: varios, y ninguno es origin. */
-  get remoteNames(): readonly string[] { return this._remoteNames; }
+  get remoteNames(): readonly string[] {
+    return this._remoteNames;
+  }
   /** La carpeta del repo ya no existe. */
-  get missing(): boolean { return this._missing; }
+  get missing(): boolean {
+    return this._missing;
+  }
   /** Repos que este tiene adentro y que git subiría como punteros vacíos. */
-  get nested(): readonly string[] { return this._nested; }
-  get nextFlightAt(): number | undefined { return this.scheduler.dueAt; }
-  get lastPushAt(): number | undefined { return this._lastPushAt; }
-  get lastAutoAt(): number | undefined { return this._lastAutoAt; }
-  get lastError(): LastError | undefined { return this._lastError; }
+  get nested(): readonly string[] {
+    return this._nested;
+  }
+  get nextFlightAt(): number | undefined {
+    return this.scheduler.dueAt;
+  }
+  get lastPushAt(): number | undefined {
+    return this._lastPushAt;
+  }
+  get lastAutoAt(): number | undefined {
+    return this._lastAutoAt;
+  }
+  get lastError(): LastError | undefined {
+    return this._lastError;
+  }
   /** Lo que frenó la última subida: posibles secretos o archivos muy grandes. */
-  get held(): readonly Finding[] | undefined { return this._held; }
+  get held(): readonly Finding[] | undefined {
+    return this._held;
+  }
 
   asLost(): LostFolder {
     return { key: this.key, path: this.root.fsPath, name: this.name, reason: 'missing' };
@@ -181,7 +231,10 @@ export class RepoController implements vscode.Disposable {
   /** El remoto al que sube, leído de git en este momento. */
   async readRemote(): Promise<(RemoteInfo & { separatePushUrl: boolean }) | undefined> {
     const remotes = await this.guard(() => readRemotes(this.services.gitPath, this.root.fsPath), []);
-    const name = chooseRemote(remotes.map((r) => r.name), this._upstream?.split('/')[0]);
+    const name = chooseRemote(
+      remotes.map((r) => r.name),
+      this._upstream?.split('/')[0],
+    );
     const chosen = remotes.find((r) => r.name === name);
     const url = chosen && urlOf(chosen);
     return chosen && url
@@ -372,7 +425,10 @@ export class RepoController implements vscode.Disposable {
 
     // vscode.git avisa aunque no haya nada nuevo (por ejemplo, al volver a la
     // ventana): solo un cambio real en la lista reinicia la espera.
-    const changeSignature = relevant.map((p) => `${status.get(p)} ${p}`).sort().join('\n');
+    const changeSignature = relevant
+      .map((p) => `${status.get(p)} ${p}`)
+      .sort()
+      .join('\n');
     const changed = changeSignature !== this.changeSignature;
     this.changeSignature = changeSignature;
     this.considerFlight(changed);
@@ -413,7 +469,9 @@ export class RepoController implements vscode.Disposable {
     this.heldFindings = signature;
     this.scheduler.cancel();
     if (isNew) {
-      this.services.log.warn(`[${this.name}] held back: ${findings.map((f) => `${f.path} (${f.rule}${f.line ? `, line ${f.line}` : ''}${f.commit ? `, commit ${f.commit}` : ''})`).join(', ')}`);
+      this.services.log.warn(
+        `[${this.name}] held back: ${findings.map((f) => `${f.path} (${f.rule}${f.line ? `, line ${f.line}` : ''}${f.commit ? `, commit ${f.commit}` : ''})`).join(', ')}`,
+      );
       if (notify) {
         this.services.onHeld(this, findings);
       }
@@ -533,7 +591,12 @@ export class RepoController implements vscode.Disposable {
         return;
       }
       const summary = redactCredentials(e instanceof Error ? e.message : String(e));
-      this.report(kind, { code: -1, ok: false, summary, detail: undefined, committed: false, pushed: false, output: summary }, changes, this._remote?.url);
+      this.report(
+        kind,
+        { code: -1, ok: false, summary, detail: undefined, committed: false, pushed: false, output: summary },
+        changes,
+        this._remote?.url,
+      );
     } finally {
       this._flying = false;
       if (!this.disposed && !this._missing) {

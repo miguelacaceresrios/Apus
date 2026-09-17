@@ -12,8 +12,16 @@ export const LOGO = 'apus-logo';
 
 /** Comandos que se pueden disparar desde los links de un tooltip. */
 const TOOLTIP_COMMANDS = [
-  'apus.toggleWatch', 'apus.pushNow', 'apus.showLog', 'apus.fixBinary', 'apus.getStarted',
-  'apus.changeUrl', 'apus.changeFolder', 'apus.fixLast', 'apus.relocate', 'apus.reviewHeld',
+  'apus.toggleWatch',
+  'apus.pushNow',
+  'apus.showLog',
+  'apus.fixBinary',
+  'apus.getStarted',
+  'apus.changeUrl',
+  'apus.changeFolder',
+  'apus.fixLast',
+  'apus.relocate',
+  'apus.reviewHeld',
 ];
 
 export interface Look {
@@ -119,7 +127,10 @@ export function tooltip(c: RepoController): vscode.MarkdownString {
     line('check', vscode.l10n.t('no changes'));
   } else {
     const ignored = c.pending - c.relevant;
-    line('diff-modified', ignored > 0 ? vscode.l10n.t('{0} ({1} ignored by your rules)', uncommitted(c.pending), ignored) : uncommitted(c.pending));
+    line(
+      'diff-modified',
+      ignored > 0 ? vscode.l10n.t('{0} ({1} ignored by your rules)', uncommitted(c.pending), ignored) : uncommitted(c.pending),
+    );
   }
   if (c.ahead > 0) {
     line('arrow-up', unpushed(c.ahead));
@@ -136,10 +147,14 @@ export function tooltip(c: RepoController): vscode.MarkdownString {
 
   links(
     c.watching ? link('eye-closed', vscode.l10n.t('Pause'), 'apus.toggleWatch') : link('eye', vscode.l10n.t('Watch'), 'apus.toggleWatch'),
-    c.remote ? link('cloud-upload', vscode.l10n.t('Push Now'), 'apus.pushNow') : link('plug', vscode.l10n.t('Connect URL…'), 'apus.changeUrl'),
+    c.remote
+      ? link('cloud-upload', vscode.l10n.t('Push Now'), 'apus.pushNow')
+      : link('plug', vscode.l10n.t('Connect URL…'), 'apus.changeUrl'),
     c.held
       ? link('shield', vscode.l10n.t('Review…'), 'apus.reviewHeld')
-      : c.lastError ? link('tools', vscode.l10n.t('Fix…'), 'apus.fixLast') : link('history', vscode.l10n.t('Auto-commits'), 'apus.showLog'),
+      : c.lastError
+        ? link('tools', vscode.l10n.t('Fix…'), 'apus.fixLast')
+        : link('history', vscode.l10n.t('Auto-commits'), 'apus.showLog'),
   );
   return md;
 }

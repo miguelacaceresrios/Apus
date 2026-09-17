@@ -15,28 +15,32 @@ export function registerCommands(
 ): void {
   // Sin la extensión Git no hay repos, pero los comandos existen igual: los
   // botones de la guía no pueden terminar en "command not found".
-  const withRegistry = <A extends unknown[]>(fn: (registry: Registry, ...args: A) => unknown) => async (...args: A) => {
-    if (!registry) {
-      void vscode.window.showWarningMessage(vscode.l10n.t('apus needs the built-in Git extension, and it is disabled (git.enabled).'));
-      return;
-    }
-    await fn(registry, ...args);
-  };
+  const withRegistry =
+    <A extends unknown[]>(fn: (registry: Registry, ...args: A) => unknown) =>
+    async (...args: A) => {
+      if (!registry) {
+        void vscode.window.showWarningMessage(vscode.l10n.t('apus needs the built-in Git extension, and it is disabled (git.enabled).'));
+        return;
+      }
+      await fn(registry, ...args);
+    };
 
   // Los comandos que actúan sobre un repo lo reciben de la vista, del menú, de
   // un tooltip o de un aviso; desde la paleta, usan el del editor o preguntan.
-  const onRepo = (fn: (repo: RepoController, registry: Registry) => unknown) => withRegistry(async (r, arg?: unknown) => {
-    const repo = await r.resolve(arg);
-    if (repo) {
-      await fn(repo, r);
-    }
-  });
-  const onLost = (fn: (entry: LostFolder, registry: Registry) => unknown) => withRegistry(async (r, arg?: unknown) => {
-    const entry = r.resolveLost(arg);
-    if (entry) {
-      await fn(entry, r);
-    }
-  });
+  const onRepo = (fn: (repo: RepoController, registry: Registry) => unknown) =>
+    withRegistry(async (r, arg?: unknown) => {
+      const repo = await r.resolve(arg);
+      if (repo) {
+        await fn(repo, r);
+      }
+    });
+  const onLost = (fn: (entry: LostFolder, registry: Registry) => unknown) =>
+    withRegistry(async (r, arg?: unknown) => {
+      const entry = r.resolveLost(arg);
+      if (entry) {
+        await fn(entry, r);
+      }
+    });
 
   const commands: Record<string, (...args: unknown[]) => unknown> = {
     'apus.menu': onRepo((repo, r) => showMenu(r, repo)),
@@ -57,8 +61,7 @@ export function registerCommands(
     'apus.explainNested': onRepo((repo, r) => explainNested(r, repo)),
     'apus.reviewHeld': onRepo(reviewHeld),
     'apus.reviewAllowed': onRepo(reviewAllowed),
-    'apus.openSettings': () =>
-      vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${context.extension.id}`),
+    'apus.openSettings': () => vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${context.extension.id}`),
     'apus.selectBinary': () => binary.choose(),
     'apus.fixBinary': () => binary.offerFix(),
     'apus.downloadApus': () => vscode.env.openExternal(vscode.Uri.parse(APUS_DOWNLOAD_URL)),

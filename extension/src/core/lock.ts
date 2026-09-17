@@ -53,8 +53,10 @@ async function readLock(file: string): Promise<LockInfo | undefined> {
   try {
     const data: unknown = JSON.parse(await fs.readFile(file, 'utf8'));
     if (
-      typeof data === 'object' && data !== null &&
-      typeof (data as LockInfo).pid === 'number' && typeof (data as LockInfo).at === 'number'
+      typeof data === 'object' &&
+      data !== null &&
+      typeof (data as LockInfo).pid === 'number' &&
+      typeof (data as LockInfo).at === 'number'
     ) {
       return data as LockInfo;
     }

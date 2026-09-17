@@ -57,11 +57,7 @@ test('compileGlobs acepta rutas de Windows e informa los patrones rotos', () => 
 
 test('un patrón armado para colgar la extensión termina enseguida', () => {
   // Con la versión en regex esto tardaba más de dos minutos.
-  const hostile = [
-    '**/**/**/**/**/**/**/**/**/**/**/**/x',
-    '**/a/**/a/**/a/**/a/**/a/**/a/**/a/**/b',
-    '*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*b',
-  ];
+  const hostile = ['**/**/**/**/**/**/**/**/**/**/**/**/x', '**/a/**/a/**/a/**/a/**/a/**/a/**/a/**/b', '*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*b'];
   const long = `${'a/'.repeat(200)}y`;
   const longName = 'a'.repeat(5000);
   const started = Date.now();

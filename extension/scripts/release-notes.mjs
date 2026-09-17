@@ -15,5 +15,8 @@ if (!version || start < 0) {
   process.exit(1);
 }
 const end = lines.findIndex((line, i) => i > start && line.startsWith('## '));
-const notes = lines.slice(start + 1, end < 0 ? undefined : end).join('\n').trim();
+const notes = lines
+  .slice(start + 1, end < 0 ? undefined : end)
+  .join('\n')
+  .trim();
 console.log(notes);

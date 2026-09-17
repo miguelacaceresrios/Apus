@@ -40,10 +40,7 @@ export function compileGlob(glob: string): GlobMatcher {
  * Compila una lista de globs en un predicado. Los patrones inválidos se
  * informan por `onInvalid` y se ignoran: uno mal escrito no apaga los demás.
  */
-export function compileGlobs(
-  patterns: readonly string[],
-  onInvalid: (pattern: string, error: Error) => void = () => {},
-): GlobMatcher {
+export function compileGlobs(patterns: readonly string[], onInvalid: (pattern: string, error: Error) => void = () => {}): GlobMatcher {
   const compiled: GlobMatcher[] = [];
   for (const p of patterns) {
     if (!p.trim()) {
@@ -134,9 +131,10 @@ function matchSegments(pattern: readonly string[], path: readonly string[]): boo
     if (cached !== undefined) {
       return cached;
     }
-    const result = pattern[p] === '**'
-      ? go(p + 1, s) || (s < path.length && go(p, s + 1))
-      : s < path.length && matchSegment(pattern[p]!, path[s]!) && go(p + 1, s + 1);
+    const result =
+      pattern[p] === '**'
+        ? go(p + 1, s) || (s < path.length && go(p, s + 1))
+        : s < path.length && matchSegment(pattern[p]!, path[s]!) && go(p + 1, s + 1);
     memo.set(key, result);
     return result;
   };

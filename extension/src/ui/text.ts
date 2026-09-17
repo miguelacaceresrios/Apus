@@ -20,9 +20,8 @@ export const when = (ms: number): string => `${clock(ms)} (${formatRelative(ms, 
 /** La ruta con ~ en lugar de la carpeta del usuario: "~\Desktop\viper". */
 export function tildify(fsPath: string): string {
   const home = os.homedir();
-  const same = process.platform === 'win32'
-    ? fsPath.toLowerCase().startsWith(home.toLowerCase() + path.sep)
-    : fsPath.startsWith(home + path.sep);
+  const same =
+    process.platform === 'win32' ? fsPath.toLowerCase().startsWith(home.toLowerCase() + path.sep) : fsPath.startsWith(home + path.sep);
   return same ? `~${fsPath.slice(home.length)}` : fsPath;
 }
 
@@ -127,7 +126,10 @@ export function urlMessage(check: UrlCheck): vscode.InputBoxValidationMessage | 
     return undefined;
   }
   if (check.problem === 'empty') {
-    return { message: vscode.l10n.t('Paste the URL of the repository, for example https://github.com/user/repo.git'), severity: vscode.InputBoxValidationSeverity.Info };
+    return {
+      message: vscode.l10n.t('Paste the URL of the repository, for example https://github.com/user/repo.git'),
+      severity: vscode.InputBoxValidationSeverity.Info,
+    };
   }
   return {
     message: check.suggestion

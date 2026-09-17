@@ -75,15 +75,16 @@ export function heldSummary(findings: readonly Finding[]): string {
 }
 
 export function heldState(findings: readonly Finding[]): string {
-  return findings.some(isSecret)
-    ? vscode.l10n.t('held back: possible secret')
-    : vscode.l10n.t('held back: file too big');
+  return findings.some(isSecret) ? vscode.l10n.t('held back: possible secret') : vscode.l10n.t('held back: file too big');
 }
 
 /** Qué conviene hacer con cada aviso. */
 function advice(f: Finding): string {
   if (f.commit) {
-    return vscode.l10n.t('It is in commit {0}, which is not pushed yet: .gitignore does not take it out. Undo that commit (git reset --soft) and commit again without it.', f.commit);
+    return vscode.l10n.t(
+      'It is in commit {0}, which is not pushed yet: .gitignore does not take it out. Undo that commit (git reset --soft) and commit again without it.',
+      f.commit,
+    );
   }
   if (!isSecret(f)) {
     return f.tracked
@@ -170,7 +171,12 @@ export async function reviewHeld(repo: RepoController): Promise<void> {
         const stop = vscode.l10n.t('Stop Tracking');
         const answer = await vscode.window.showWarningMessage(
           vscode.l10n.t('Stop tracking {0}?', f.path),
-          { modal: true, detail: vscode.l10n.t('The file stays on your disk. The next commit removes it from the repository, and it goes into .gitignore. If it was already pushed, it is still in the history: change that secret.') },
+          {
+            modal: true,
+            detail: vscode.l10n.t(
+              'The file stays on your disk. The next commit removes it from the repository, and it goes into .gitignore. If it was already pushed, it is still in the history: change that secret.',
+            ),
+          },
           stop,
         );
         if (answer === stop) {

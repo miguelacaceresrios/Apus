@@ -6,16 +6,19 @@ import { browseUrl, parseAutoCommits, parseLastPush } from '../../src/core/git';
 // Salidas reales de apus 2.1.0 (stderr, sin terminal).
 
 test('parseFlight: subida completa', () => {
-  const f = parseFlight(0, [
-    '» git add -A',
-    '» git commit -m chore: auto 1',
-    '[main 5951cd8] chore: auto 1',
-    '» git push',
-    '   5951cd8..cb60c48  main -> main',
-    '✔ main → origin/main',
-    '  https://github.com/u/r',
-    '',
-  ].join('\n'));
+  const f = parseFlight(
+    0,
+    [
+      '» git add -A',
+      '» git commit -m chore: auto 1',
+      '[main 5951cd8] chore: auto 1',
+      '» git push',
+      '   5951cd8..cb60c48  main -> main',
+      '✔ main → origin/main',
+      '  https://github.com/u/r',
+      '',
+    ].join('\n'),
+  );
   assert.equal(f.ok, true);
   assert.equal(f.summary, 'main → origin/main');
   assert.equal(f.detail, 'https://github.com/u/r');
@@ -32,14 +35,17 @@ test('parseFlight: nada que hacer', () => {
 });
 
 test('parseFlight: falla el push con el commit ya hecho', () => {
-  const f = parseFlight(3, [
-    '» git add -A',
-    '» git commit -m x',
-    '» git push',
-    '! [rejected]        main -> main (fetch first)',
-    '✖ el push falló: main → origin/main',
-    "  el remoto tiene commits que vos no tenés: corré 'git pull --rebase' y volvé a intentar",
-  ].join('\r\n'));
+  const f = parseFlight(
+    3,
+    [
+      '» git add -A',
+      '» git commit -m x',
+      '» git push',
+      '! [rejected]        main -> main (fetch first)',
+      '✖ el push falló: main → origin/main',
+      "  el remoto tiene commits que vos no tenés: corré 'git pull --rebase' y volvé a intentar",
+    ].join('\r\n'),
+  );
   assert.equal(f.ok, false);
   assert.equal(f.summary, 'el push falló: main → origin/main');
   assert.match(f.detail ?? '', /git pull --rebase/);

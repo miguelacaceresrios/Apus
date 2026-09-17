@@ -2,7 +2,7 @@
 // repetir lo de subir una carpeta que tiene un repo adentro: git guarda ese
 // repo como un puntero, y en GitHub queda vacío.
 
-import { promises as fs } from 'node:fs';
+import { type Dirent, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { isIgnored, toplevel } from './git';
 
@@ -71,7 +71,7 @@ export async function findRepos(dir: string, maxDepth = 3, maxDirs = 2000): Prom
   for (let depth = 0; depth < maxDepth && level.length > 0; depth++) {
     const next: string[] = [];
     for (const parent of level) {
-      let entries: import('node:fs').Dirent[];
+      let entries: Dirent[];
       try {
         entries = await fs.readdir(parent, { withFileTypes: true });
       } catch {
