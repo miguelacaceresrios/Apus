@@ -6,11 +6,21 @@
 
 <p align="center">Your repositories push themselves, and you can see how each one is doing without leaving VS Code.</p>
 
+<p align="center">
+  <a href="https://github.com/miguelacaceresrios/apus-affinis/actions/workflows/ci.yml"><img src="https://github.com/miguelacaceresrios/apus-affinis/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/miguelacaceresrios/apus-affinis/releases/latest"><img src="https://img.shields.io/github/v/release/miguelacaceresrios/apus-affinis" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/miguelacaceresrios/apus-affinis" alt="License"></a>
+</p>
+
 <p align="center"><a href="README.es.md">Leer en español</a></p>
 
 ---
 
 *Apus affinis* is the little swift, a relative of *Apus*. This extension brings [apus](https://github.com/miguelacaceresrios/Apus) into the editor. It watches your repositories, and when you stop touching one for a while, apus runs `add`, `commit` and `push`. The status bar shows whether there are changes waiting, how long until the next auto-commit, and when the last push happened.
+
+<p align="center">
+  <img src="images/screenshots/view.png" width="900" alt="The Apus view: portfolio is watched, with 2 changes and the next auto-commit in 4:55; api is held back by a .env file and a token in src/config.ts; notes has no URL yet.">
+</p>
 
 ## Features
 
@@ -84,6 +94,10 @@ The time of the last push comes from the remote-tracking branch's reflog. The ex
 
 All of them are in the Command Palette under **Apus**, and most are one click away in the view or the menu.
 
+<p align="center">
+  <img src="images/screenshots/menu.png" width="900" alt="The menu of a repository: push now, pause, auto-commits, change folder, change URL, open in browser, remove from Apus, add folder, rules, log and get started.">
+</p>
+
 | Command | What it does |
 |---|---|
 | Add Folder… | Adds a project folder to the list. A plain folder can be initialized; a folder with repositories inside asks which one. |
@@ -115,6 +129,11 @@ A secret that reaches GitHub has to be treated as leaked, even if you delete it 
 Placeholders like `your-token-here`, `${DB_PASSWORD}` or `AKIA…EXAMPLE` don't count, and a secret that was already in the last commit isn't reported again on every change.
 
 **When something turns up**, an auto-commit pushes nothing: the repository shows a shield, and a notification tells you what and where. A push by hand asks first, and you can push anyway. **Review Held Files…** lists each finding with its fix:
+
+<p align="center">
+  <img src="images/screenshots/held-back.png" width="900" alt="Review Held Files: a .env file, with buttons to add it to .gitignore or let it through, and a GitHub token on line 1 of src/config.ts.">
+</p>
+
 
 - **Add to .gitignore**, for a file git doesn't track yet.
 - **Stop tracking it**, for a file already in git: it stays on your disk and goes into `.gitignore`.

@@ -1,0 +1,57 @@
+name: release
+
+# Al subir un tag vX.Y.Z: pruebas, .vsix, Release en GitHub con las notas del
+# CHANGELOG y, si están los tokens, publicación en el Marketplace y en Open VSX.
+#
+#   git tag v0.4.0 && git push origin v0.4.0
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # Secretos del repo (Settings → Secrets and variables → Actions). Sin ellos, ese paso se saltea.
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: el tag coincide con la versión de package.json
+        run: |
+          expected="v$(node -p 'require("./package.json").version')"
+          [ "$GITHUB_REF_NAME" = "$expected" ] || { echo "el tag es $GITHUB_REF_NAME y package.json dice $expected"; exit 1; }
+
+      - name: pruebas
+        run: npm test
+
+      - name: empaquetar
+        run: npm run vsix
+
+      - name: notas de la versión
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
+
+      - name: release en GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" apus-affinis.vsix --title "Apus affinis $GITHUB_REF_NAME" --notes-file notes.md
+
+      - name: Visual Studio Marketplace
+        if: env.VSCE_PAT != ''
+        run: npx vsce publish --packagePath apus-affinis.vsix
+
+      - name: Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx ovsx publish apus-affinis.vsix

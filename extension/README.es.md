@@ -6,11 +6,21 @@
 
 <p align="center">Tus repos se suben solos, y ves en qué anda cada uno sin salir de VS Code.</p>
 
+<p align="center">
+  <a href="https://github.com/miguelacaceresrios/apus-affinis/actions/workflows/ci.yml"><img src="https://github.com/miguelacaceresrios/apus-affinis/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/miguelacaceresrios/apus-affinis/releases/latest"><img src="https://img.shields.io/github/v/release/miguelacaceresrios/apus-affinis" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/miguelacaceresrios/apus-affinis" alt="Licencia"></a>
+</p>
+
 <p align="center"><a href="README.md">Read in English</a></p>
 
 ---
 
 *Apus affinis* es el vencejo pequeño, pariente de *Apus*. Esta extensión lleva [apus](https://github.com/miguelacaceresrios/Apus) al editor. Vigila tus repos y, cuando dejás de tocar uno un rato, apus hace `add`, `commit` y `push`. En la barra ves si hay cambios esperando, cuánto falta para el próximo auto-commit y a qué hora fue el último push.
+
+<p align="center">
+  <img src="images/screenshots/view.png" width="900" alt="La vista Apus: portfolio vigilado, con 2 cambios y el próximo auto-commit en 4:55; api frenado por un archivo .env y un token en src/config.ts; notes todavía sin URL.">
+</p>
 
 ## Qué hace
 
@@ -84,6 +94,10 @@ La hora del último push sale del reflog de la rama remota. La extensión no gua
 
 Están todos en la paleta de comandos, bajo **Apus**, y la mayoría queda a un clic en la vista o en el menú.
 
+<p align="center">
+  <img src="images/screenshots/menu.png" width="900" alt="El menú de un repo: subir ahora, pausar, commits automáticos, cambiar carpeta, cambiar URL, abrir en el navegador, quitar de apus, agregar carpeta, reglas, registro y primeros pasos.">
+</p>
+
 | Comando | Qué hace |
 |---|---|
 | Agregar carpeta… | Suma la carpeta de un proyecto a la lista. Si es una carpeta común, ofrece inicializarla; si tiene repos adentro, pregunta cuál. |
@@ -115,6 +129,11 @@ Un secreto que llega a GitHub hay que darlo por filtrado, aunque lo borres un mi
 Los ejemplos de documentación, como `your-token-here`, `${DB_PASSWORD}` o `AKIA…EXAMPLE`, no cuentan, y un secreto que ya estaba en el último commit no se vuelve a avisar en cada cambio.
 
 **Cuando aparece algo**, un auto-commit no sube nada: el repo muestra un escudo y un aviso te dice qué y dónde. Subir a mano pregunta antes, y podés subir igual. **Revisar lo frenado…** lista cada aviso con su arreglo:
+
+<p align="center">
+  <img src="images/screenshots/held-back.png" width="900" alt="Revisar lo frenado: un archivo .env, con botones para agregarlo a .gitignore o dejarlo pasar, y un token de GitHub en la línea 1 de src/config.ts.">
+</p>
+
 
 - **Agregar a .gitignore**, para un archivo que git todavía no sigue.
 - **Dejar de seguirlo**, para un archivo que ya está en git: queda en tu disco y pasa a `.gitignore`.
