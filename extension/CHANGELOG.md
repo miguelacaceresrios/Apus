@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Download apus** now downloads the binary for your system from apus's latest release (Windows, Linux or macOS, x64 or ARM), and then offers to choose it. No Go needed.
+- Development: ESLint with type-aware rules and Prettier; coverage of the core in CI (at least 90% of lines); integration tests inside VS Code on Linux and Windows in CI; the repository controller split into smaller modules.
+
 ## 0.4.0
 
 **Security**
