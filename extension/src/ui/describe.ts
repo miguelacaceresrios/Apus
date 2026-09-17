@@ -1,15 +1,20 @@
 // Cómo se cuenta el estado de un repo. La barra, la vista y el menú usan lo mismo.
 
 import * as vscode from 'vscode';
+import { shortUrl } from '../core/remote';
 import { formatCountdown } from '../core/time';
 import type { RepoController } from '../repos/repoController';
-import { blockReason, changes, clock, flightSummary, uncommitted, unpushed, when } from './text';
+import { heldState, heldSummary } from './safety';
+import { blockReason, changes, clock, flightSummary, tildify, uncommitted, unpushed, when } from './text';
 
 /** Ícono propio, definido en package.json (contributes.icons) con images/apus-icons.woff. */
 export const LOGO = 'apus-logo';
 
 /** Comandos que se pueden disparar desde los links de un tooltip. */
-const TOOLTIP_COMMANDS = ['apus.toggleWatch', 'apus.pushNow', 'apus.showLog', 'apus.fixBinary', 'apus.getStarted'];
+const TOOLTIP_COMMANDS = [
+  'apus.toggleWatch', 'apus.pushNow', 'apus.showLog', 'apus.fixBinary', 'apus.getStarted',
+  'apus.changeUrl', 'apus.changeFolder', 'apus.fixLast', 'apus.relocate', 'apus.reviewHeld',
+];
 
 export interface Look {
   icon: string;
@@ -18,14 +23,25 @@ export interface Look {
 }
 
 export function look(c: RepoController): Look {
+  if (c.missing) {
+    return { icon: 'warning', color: 'problemsWarningIcon.foreground', state: vscode.l10n.t('folder not found') };
+  }
   if (c.flying) {
     return { icon: 'sync~spin', color: undefined, state: vscode.l10n.t('pushing…') };
+  }
+  if (c.held) {
+    return { icon: 'shield', color: 'problemsWarningIcon.foreground', state: heldState(c.held) };
   }
   if (c.lastError) {
     return { icon: 'warning', color: 'problemsWarningIcon.foreground', state: vscode.l10n.t('last push failed') };
   }
   if (!c.watching) {
-    return { icon: 'eye-closed', color: undefined, state: vscode.l10n.t('paused') };
+    return c.blocked === 'noRemote'
+      ? { icon: 'debug-disconnect', color: undefined, state: vscode.l10n.t('no URL') }
+      : { icon: 'eye-closed', color: undefined, state: vscode.l10n.t('paused') };
+  }
+  if (c.blocked === 'noRemote') {
+    return { icon: 'debug-disconnect', color: 'problemsWarningIcon.foreground', state: vscode.l10n.t('watching, but there is no URL') };
   }
   if (c.blocked) {
     return { icon: 'circle-slash', color: 'problemsWarningIcon.foreground', state: vscode.l10n.t('stopped: {0}', blockReason(c.blocked)) };
@@ -33,14 +49,22 @@ export function look(c: RepoController): Look {
   return { icon: LOGO, color: 'charts.orange', state: vscode.l10n.t('watching') };
 }
 
-/** "3 · en 1:40" o la hora del último push: lo que va al lado del ícono. */
+/** Si el estado pide que hagas algo: se pinta de advertencia. */
+export function needsAttention(c: RepoController): boolean {
+  return c.missing || c.held !== undefined || c.lastError !== undefined || (c.watching && c.blocked === 'noRemote');
+}
+
+/** "en 1:40": lo que falta para el próximo auto-commit, si hay uno en espera. */
 export function countdown(c: RepoController, now = Date.now()): string | undefined {
   return c.nextFlightAt !== undefined && !c.flying ? vscode.l10n.t('in {0}', formatCountdown(c.nextFlightAt - now)) : undefined;
 }
 
-/** Una línea para la vista: "vigilando · 3 cambios · en 1:40". */
+/** Una línea corta para la vista: "vigilando · 3 cambios · en 1:40". */
 export function summary(c: RepoController): string {
   const parts = [look(c).state];
+  if (c.missing) {
+    return parts[0]!;
+  }
   if (c.pending > 0) {
     parts.push(changes(c.pending));
   }
@@ -64,6 +88,12 @@ export function tooltip(c: RepoController): vscode.MarkdownString {
     md.appendText(text);
     md.appendMarkdown('  \n');
   };
+  const link = (codicon: string, label: string, command: string, arg: unknown = c.key) =>
+    `[$(${codicon}) ${label}](command:${command}?${encodeURIComponent(JSON.stringify([arg]))})`;
+  const links = (...items: string[]) => {
+    md.appendMarkdown('\n---\n\n');
+    md.appendMarkdown(items.join(' &nbsp;·&nbsp; '));
+  };
 
   md.appendMarkdown('**apus · ');
   md.appendText(c.name);
@@ -75,6 +105,16 @@ export function tooltip(c: RepoController): vscode.MarkdownString {
   md.appendMarkdown('\n\n');
 
   line(icon, state);
+  if (c.missing) {
+    line('folder', tildify(c.root.fsPath));
+    links(link('search', vscode.l10n.t('Locate Folder…'), 'apus.relocate', c.asLost()));
+    return md;
+  }
+  if (c.held) {
+    line('file', heldSummary(c.held));
+  }
+
+  line('link', c.remote ? shortUrl(c.remote.url) : vscode.l10n.t('no URL to push to'));
   if (c.pending === 0) {
     line('check', vscode.l10n.t('no changes'));
   } else {
@@ -94,14 +134,13 @@ export function tooltip(c: RepoController): vscode.MarkdownString {
     line('warning', flight.detail ? `${flightSummary(flight)} — ${flight.detail}` : flightSummary(flight));
   }
 
-  const link = (codicon: string, label: string, command: string) =>
-    `[$(${codicon}) ${label}](command:${command}?${encodeURIComponent(JSON.stringify([c.key]))})`;
-  md.appendMarkdown('\n---\n\n');
-  md.appendMarkdown([
+  links(
     c.watching ? link('eye-closed', vscode.l10n.t('Pause'), 'apus.toggleWatch') : link('eye', vscode.l10n.t('Watch'), 'apus.toggleWatch'),
-    link('cloud-upload', vscode.l10n.t('Push now'), 'apus.pushNow'),
-    link('history', vscode.l10n.t('Auto-commits'), 'apus.showLog'),
-  ].join(' &nbsp;·&nbsp; '));
+    c.remote ? link('cloud-upload', vscode.l10n.t('Push Now'), 'apus.pushNow') : link('plug', vscode.l10n.t('Connect URL…'), 'apus.changeUrl'),
+    c.held
+      ? link('shield', vscode.l10n.t('Review…'), 'apus.reviewHeld')
+      : c.lastError ? link('tools', vscode.l10n.t('Fix…'), 'apus.fixLast') : link('history', vscode.l10n.t('Auto-commits'), 'apus.showLog'),
+  );
   return md;
 }
 

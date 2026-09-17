@@ -27,6 +27,27 @@ export function readRepoConfig(scope: vscode.Uri): RepoConfig {
   };
 }
 
+export interface SafetyConfig {
+  /** Revisar lo que se va a subir antes de cada push. */
+  enabled: boolean;
+  /** Los archivos más grandes que esto se frenan. */
+  maxFileBytes: number;
+}
+
+/**
+ * Los dos ajustes son de alcance "machine" en package.json: VS Code no toma lo
+ * que diga el .vscode/settings.json de un repo, así un repo no puede apagar la
+ * revisión que lo protege.
+ */
+export function readSafetyConfig(): SafetyConfig {
+  const c = vscode.workspace.getConfiguration(SECTION);
+  const mb = Math.min(100, Math.max(1, number(c.get('maxFileSize'), 50)));
+  return {
+    enabled: c.get('checkBeforePush') !== false,
+    maxFileBytes: Math.round(mb * 1024 * 1024),
+  };
+}
+
 export function notifyLevel(): NotifyLevel {
   const v = vscode.workspace.getConfiguration(SECTION).get('notifications');
   return v === 'errors' || v === 'off' ? v : 'all';

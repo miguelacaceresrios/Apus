@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# Las pruebas solo leen el repo: el token de Actions no necesita más.
+permissions:
+  contents: read
+
 jobs:
   test:
     strategy:

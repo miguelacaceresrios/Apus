@@ -1,7 +1,10 @@
 import * as vscode from 'vscode';
 import { notifyLevel, SECTION } from '../config';
-import type { FlightReport } from '../repos/repoController';
-import { changes, flightSummary } from './text';
+import { diagnose } from '../core/apus';
+import type { Finding } from '../core/safety';
+import type { FlightReport, RepoController } from '../repos/repoController';
+import { isSecret, location, ruleText } from './safety';
+import { changes, fixLabel, flightSummary, tildify, troubleText } from './text';
 
 /** Avisos de VS Code en lugar de notify-send, según apus.notifications. */
 export class Notifier {
@@ -10,6 +13,7 @@ export class Notifier {
   /**
    * Muestra el desenlace de un vuelo. Lo manual siempre se informa; lo
    * automático, según el ajuste, y un error repetido no se vuelve a avisar.
+   * Si el error se reconoce, el aviso trae el botón que lo arregla.
    */
   report({ repo, kind, flight, changes: count }: FlightReport, repeatedError: boolean): void {
     const level = notifyLevel();
@@ -20,11 +24,15 @@ export class Notifier {
       if (auto && (level === 'off' || repeatedError)) {
         return;
       }
-      const showLog = vscode.l10n.t('Show log');
-      const text = flight.detail ? `${summary}. ${flight.detail}` : summary;
-      void vscode.window.showWarningMessage(vscode.l10n.t('apus · {0}: {1}', repo.name, text), showLog).then((answer) => {
+      const trouble = diagnose(flight);
+      const fix = fixLabel(trouble);
+      const showLog = vscode.l10n.t('Show Log');
+      const actions = fix ? [fix, showLog] : [showLog];
+      void vscode.window.showWarningMessage(vscode.l10n.t('apus · {0}: {1}', repo.name, troubleText(trouble, repo, flight)), ...actions).then((answer) => {
         if (answer === showLog) {
           this.log.show(true);
+        } else if (answer === fix) {
+          void vscode.commands.executeCommand('apus.fixLast', repo.key);
         }
       });
       return;
@@ -43,7 +51,8 @@ export class Notifier {
 
     const open = vscode.l10n.t('Open');
     const mute = vscode.l10n.t('Mute');
-    const url = flight.detail?.startsWith('https://') ? flight.detail : repo.browseUrl();
+    // La URL del remoto, sin credenciales; la que imprime apus puede traerlas.
+    const url = repo.browseUrl() ?? (flight.detail?.startsWith('https://') && !flight.detail.includes('@') ? flight.detail : undefined);
     const text = flight.committed
       ? vscode.l10n.t('apus · {0}: pushed {1} ({2})', repo.name, changes(count), summary)
       : vscode.l10n.t('apus · {0}: pushed pending commits ({1})', repo.name, summary);
@@ -54,6 +63,58 @@ export class Notifier {
       } else if (answer === mute) {
         await vscode.workspace.getConfiguration(SECTION).update('notifications', 'errors', vscode.ConfigurationTarget.Global);
         void vscode.window.showInformationMessage(vscode.l10n.t('apus: from now on you will only be notified when something fails. You can change this in Rules.'));
+      }
+    });
+  }
+
+  /** La carpeta de un repo desapareció: se avisa una vez, con cómo seguir. */
+  missing(repo: RepoController): void {
+    if (notifyLevel() === 'off') {
+      return;
+    }
+    const locate = vscode.l10n.t('Locate Folder…');
+    const forget = vscode.l10n.t('Forget');
+    const entry = repo.asLost();
+    void vscode.window.showWarningMessage(
+      vscode.l10n.t('apus · {0}: the folder no longer exists ({1}).', repo.name, tildify(entry.path)),
+      locate,
+      forget,
+    ).then((answer) => {
+      if (answer === locate) {
+        void vscode.commands.executeCommand('apus.relocate', entry);
+      } else if (answer === forget) {
+        void vscode.commands.executeCommand('apus.forget', entry);
+      }
+    });
+  }
+
+  /** Un auto-commit no subió nada: la revisión encontró algo. Se avisa una vez por cada cosa nueva. */
+  held(repo: RepoController, findings: readonly Finding[]): void {
+    if (notifyLevel() === 'off' || findings.length === 0) {
+      return;
+    }
+    const first = findings[0]!;
+    const text = isSecret(first)
+      ? vscode.l10n.t('apus · {0}: nothing was pushed. {1} looks like a secret ({2}).', repo.name, location(first), ruleText(first))
+      : vscode.l10n.t('apus · {0}: nothing was pushed. {1} is too big ({2}).', repo.name, location(first), ruleText(first));
+    const more = findings.length > 1 ? ` ${vscode.l10n.t('And {0} more.', findings.length - 1)}` : '';
+    const review = vscode.l10n.t('Review…');
+    void vscode.window.showWarningMessage(text + more, review).then((answer) => {
+      if (answer === review) {
+        void vscode.commands.executeCommand('apus.reviewHeld', repo.key);
+      }
+    });
+  }
+
+  /** En la carpeta ahora hay otro repo: apus dejó de vigilarla. */
+  replaced(repo: RepoController): void {
+    const watch = vscode.l10n.t('Watch');
+    void vscode.window.showInformationMessage(
+      vscode.l10n.t('apus · {0}: this folder now holds a different repository than the one you watched, so apus stopped watching it.', repo.name),
+      watch,
+    ).then((answer) => {
+      if (answer === watch) {
+        void repo.setWatching(true);
       }
     });
   }

@@ -13,11 +13,15 @@ export interface GitAPI {
   readonly repositories: Repository[];
   readonly onDidOpenRepository: vscode.Event<Repository>;
   readonly onDidCloseRepository: vscode.Event<Repository>;
+  /** Abre el repo de esa carpeta en esta ventana. Null si no es un repo. */
+  openRepository?(root: vscode.Uri): Promise<Repository | null>;
 }
 
 export interface Repository {
   readonly rootUri: vscode.Uri;
   readonly state: RepositoryState;
+  /** Vuelve a leer el estado sin esperar a que vscode.git note el cambio. */
+  status?(): Promise<void>;
 }
 
 export interface RepositoryState {
