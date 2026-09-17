@@ -1,0 +1,63 @@
+name: release
+
+# Al subir un tag vX.Y.Z: pruebas, binarios para Windows, Linux y macOS, y una
+# Release con las notas del CHANGELOG. Así nadie necesita Go para usar apus.
+#
+#   git tag v2.1.0 && git push origin v2.1.0
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: el tag coincide con la versión de apus
+        run: |
+          version=$(sed -n 's/^const version = "\(.*\)"$/\1/p' main.go)
+          [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "el tag es $GITHUB_REF_NAME y main.go dice $version"; exit 1; }
+
+      - name: pruebas
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: compilar
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          set -e
+          mkdir -p dist
+          # build SO ARQ archivo [flags extra]
+          build() { GOOS=$1 GOARCH=$2 go build -trimpath -ldflags "-s -w $4" -o "dist/$3" .; }
+          # En Windows x64 los nombres de siempre: son los que busca la extensión de VS Code.
+          build windows amd64 apus.exe
+          build windows amd64 apusw.exe -H=windowsgui
+          build windows arm64 apus-windows-arm64.exe
+          build windows arm64 apusw-windows-arm64.exe -H=windowsgui
+          build linux amd64 apus-linux-amd64
+          build linux arm64 apus-linux-arm64
+          build darwin amd64 apus-darwin-amd64
+          build darwin arm64 apus-darwin-arm64
+          cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: notas de la versión
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## $version" '$0 == v { on = 1; next } /^## / { if (on) exit } on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "CHANGELOG.md no tiene la sección ## $version"; exit 1; }
+
+      - name: release en GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "apus $GITHUB_REF_NAME" --notes-file notes.md

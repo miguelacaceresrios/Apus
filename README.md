@@ -58,12 +58,39 @@ Si la carpeta no es un repo, ofrece iniciarla. Si la rama nunca se publicó, hac
 
 ## Instalación
 
-Hace falta [Go 1.25](https://go.dev/dl/) para compilar.
+### Descargar
+
+Cada versión trae los binarios listos en [Releases](https://github.com/miguelacaceresrios/Apus/releases/latest). No hace falta Go.
+
+| Sistema | Terminal | Ventana |
+|---|---|---|
+| Windows x64 | [`apus.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus.exe) | [`apusw.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apusw.exe) |
+| Windows ARM | [`apus-windows-arm64.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-windows-arm64.exe) | [`apusw-windows-arm64.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apusw-windows-arm64.exe) |
+| Linux x64 | [`apus-linux-amd64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-linux-amd64) | la misma, con `apus ui` |
+| Linux ARM | [`apus-linux-arm64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-linux-arm64) | la misma, con `apus ui` |
+| macOS Intel | [`apus-darwin-amd64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-darwin-amd64) | la misma, con `apus ui` |
+| macOS Apple Silicon | [`apus-darwin-arm64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-darwin-arm64) | la misma, con `apus ui` |
+
+- **Windows**: poné `apus.exe` en una carpeta del `PATH`. Los binarios no están firmados, así que la primera vez SmartScreen puede frenarlos: *Más información → Ejecutar de todos modos*.
+- **Linux y macOS**:
+
+  ```bash
+  mkdir -p ~/.local/bin
+  curl -Lo ~/.local/bin/apus https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-linux-amd64
+  chmod +x ~/.local/bin/apus
+  ```
+
+  Cambiá `apus-linux-amd64` por el de tu sistema. En macOS, si Gatekeeper lo bloquea: `xattr -d com.apple.quarantine ~/.local/bin/apus`.
+- **Verificar la descarga**: cada release trae `SHA256SUMS.txt`, con la huella de cada archivo. Comparala con la tuya: `Get-FileHash apus.exe` en Windows, `sha256sum ~/.local/bin/apus` en Linux y macOS.
+
+### Compilar
+
+Hace falta [Go 1.25](https://go.dev/dl/).
 
 **Windows**
 
 ```powershell
-git clone https://github.com/<tu-usuario>/apus
+git clone https://github.com/miguelacaceresrios/Apus apus
 cd apus
 .\scripts\build.ps1        # deja dist\apus.exe y dist\apusw.exe
 .\scripts\atajo.ps1        # atajo en el escritorio
@@ -76,7 +103,7 @@ cd apus
 **Linux y macOS**
 
 ```bash
-git clone https://github.com/<tu-usuario>/apus && cd apus
+git clone https://github.com/miguelacaceresrios/Apus apus && cd apus
 make build                             # dist/apus
 install -Dm755 dist/apus ~/.local/bin/apus
 ```
@@ -101,7 +128,7 @@ El selector de carpetas usa `zenity` o `kdialog` en Linux, y el nativo en Window
 [`scripts/apus.sh`](scripts/apus.sh) es la versión original: la misma lógica de terminal en un solo archivo, sin ventana.
 
 ```bash
-curl -o ~/.local/bin/apus https://raw.githubusercontent.com/<tu-usuario>/apus/main/scripts/apus.sh
+curl -o ~/.local/bin/apus https://raw.githubusercontent.com/miguelacaceresrios/Apus/master/scripts/apus.sh
 chmod +x ~/.local/bin/apus
 ```
 
