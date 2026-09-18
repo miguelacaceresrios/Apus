@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs';
 const version = (process.argv[2] ?? '').replace(/^v/, '');
 const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
 const lines = changelog.split(/\r?\n/);
-const start = lines.findIndex((line) => line.trim() === `## ${version}`);
+// "## 0.5.0" o "## 0.5.0 - 2026-09-18".
+const start = lines.findIndex((line) => line.trim() === `## ${version}` || line.startsWith(`## ${version} - `));
 if (!version || start < 0) {
   console.error(`CHANGELOG.md no tiene la sección "## ${version}"`);
   process.exit(1);

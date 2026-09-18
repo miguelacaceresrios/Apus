@@ -1,11 +1,13 @@
 # Changelog
 
+Notable changes to Apus affinis. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
+
 ## Unreleased
 
 - **Download apus** now downloads the binary for your system from apus's latest release (Windows, Linux or macOS, x64 or ARM), and then offers to choose it. No Go needed.
 - Development: ESLint with type-aware rules and Prettier; coverage of the core in CI (at least 90% of lines); integration tests inside VS Code on Linux and Windows in CI; the repository controller split into smaller modules.
 
-## 0.4.0
+## 0.4.0 - 2026-09-17
 
 **Security**
 
@@ -24,7 +26,7 @@
 
 - A pattern like `**/**/**/x` in `apus.ignorePatterns` could freeze the extension host for minutes. Patterns are now matched without regular expressions.
 
-## 0.3.0
+## 0.3.0 - 2026-09-17
 
 - **Folder and URL, right in the view.** Each repository opens into a card with its folder, the URL it pushes to, its branch and its auto-commits. Click the folder or the URL to change it.
 - **Add Folder…**, from the **+** in the view or from the menu. apus looks at the folder first: a repository is added as it is, a plain folder can be initialized, a subfolder offers the root of its repository, and a folder with repositories inside asks which one to add, instead of pushing empty pointers to GitHub.
@@ -46,7 +48,7 @@
 - With the Git extension disabled, the buttons in the guide failed with "command not found".
 - `npm run l10n` called a binary that does not exist.
 
-## 0.2.0
+## 0.2.0 - 2026-09-14
 
 - The apus icon in the status bar, from its own icon font, with a compact layout: last push time, or changes waiting and a live countdown to the next auto-commit.
 - Quick actions in the status bar and view tooltips: pause or watch, push now, auto-commits.
@@ -56,7 +58,7 @@
 - English and Spanish, following VS Code's display language.
 - Times and dates follow the display language too.
 
-## 0.1.0
+## 0.1.0 - 2026-09-14
 
 - Status bar item for the active repository: watching, pending changes and last push time.
 - Quick menu: watch or pause, push now, auto-commits and rules.
