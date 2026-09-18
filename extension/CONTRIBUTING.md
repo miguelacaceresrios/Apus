@@ -32,7 +32,7 @@ And check that:
 
 - **New behavior has a test.** Logic that doesn't need VS Code goes in `src/core/`, which must not import `vscode`, with unit tests in `test/unit/`. Flows that do need it can get a step in `test/integration/`.
 - **Every text the user sees is translated.** Write it in English through `vscode.l10n.t(...)`, run `npm run l10n`, and add the Spanish translation to `l10n/bundle.l10n.es.json`. A unit test fails if one is missing. Texts in `package.json` go in `package.nls.json` and `package.nls.es.json`.
-- **`CHANGELOG.md` says what changed** for users, under `## Unreleased`.
+- **`CHANGELOG.md` says what changed** for users, under `## Unreleased` at the top (add the heading if the last release took it).
 - **No real-looking secrets in tests.** Build fake tokens from pieces at runtime, like `test/unit/safety.test.ts` does, so neither the check before push nor GitHub's push protection trips on the repository.
 
 ## Conventions

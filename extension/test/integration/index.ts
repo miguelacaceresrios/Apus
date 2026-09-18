@@ -37,6 +37,12 @@ export async function run(): Promise<void> {
   };
 
   const api = await vscode.extensions.getExtension<TestHandles>(EXTENSION)!.activate();
+  const gitApi = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports.getAPI(1);
+  // vscode.git se entera de lo que cambia en disco por el watcher de archivos, y
+  // en el temporal del runner de macOS a veces no le llega: mientras se espera,
+  // se le pide que mire, como cuando volvés a la ventana.
+  const refresh = (folder: string) => () =>
+    gitApi.repositories.find((r) => repoKey(r.rootUri.fsPath) === repoKey(folder))?.status() ?? Promise.resolve();
   assert.ok(api, 'la extensión no devolvió las piezas: ¿corre en modo de pruebas?');
   const { registry, view, watchStore } = api;
   const find = (folder: string) => registry.all.find((c) => c.key === repoKey(folder));
@@ -126,7 +132,12 @@ export async function run(): Promise<void> {
     assert.equal(solo.lastError, undefined);
     await solo.pushNow();
     assert.equal(solo.lastError, undefined, output(solo));
-    await waitFor(() => solo.upstream !== undefined && solo.blocked === undefined, 15_000, 'upstream de solo');
+    await waitFor(
+      () => solo.upstream !== undefined && solo.blocked === undefined,
+      15_000,
+      'upstream de solo',
+      refresh(path.join(ws, 'solo')),
+    );
   });
 
   await step('otro repo en la misma carpeta no hereda la vigilancia', async () => {
@@ -160,7 +171,7 @@ export async function run(): Promise<void> {
     await repo.setWatching(true);
     await fs.writeFile(path.join(folder, '.env'), 'API_PASSWORD=hunter2\n');
     await fs.writeFile(path.join(folder, 'notas.md'), 'algo\n');
-    await waitFor(() => repo.held !== undefined, 60_000, 'auto-commit frenado');
+    await waitFor(() => repo.held !== undefined, 60_000, 'auto-commit frenado', refresh(folder));
     assert.deepEqual(
       repo.held!.map((f) => `${f.rule} ${f.path}`),
       ['envFile .env'],
@@ -170,7 +181,7 @@ export async function run(): Promise<void> {
 
     await repo.ignoreFile(repo.held![0]!);
     assert.equal(repo.held, undefined);
-    await waitFor(() => commits() === '2', 60_000, 'auto-commit después de .gitignore');
+    await waitFor(() => commits() === '2', 60_000, 'auto-commit después de .gitignore', refresh(folder));
     const files = execFileSync('git', ['ls-tree', '--name-only', 'main'], { cwd: bare, encoding: 'utf8' });
     assert.match(files, /notas\.md/);
     assert.doesNotMatch(files, /^\.env$/m);
@@ -243,14 +254,25 @@ function output(c: RepoController): string | undefined {
   return c.lastError?.flight.output;
 }
 
-async function waitFor(predicate: () => boolean, timeoutMs: number, what: string): Promise<void> {
+/** Espera a que se cumpla algo. `nudge` corre cada segundo mientras tanto. */
+async function waitFor(predicate: () => boolean, timeoutMs: number, what: string, nudge?: () => Promise<void>): Promise<void> {
   const end = Date.now() + timeoutMs;
+  let lastNudge = Date.now();
   while (!predicate()) {
     if (Date.now() > end) {
       throw new Error(`timeout: ${what}`);
     }
+    if (nudge && Date.now() - lastNudge >= 1000) {
+      lastNudge = Date.now();
+      await nudge().catch(() => undefined);
+    }
     await new Promise((r) => setTimeout(r, 200));
   }
+}
+
+/** Lo que se usa de la API de la extensión Git. */
+interface GitExtension {
+  getAPI(version: 1): { repositories: { rootUri: vscode.Uri; status(): Promise<void> }[] };
 }
 
 /** En Windows, git o el watcher pueden tener algo abierto un instante. */
