@@ -8,7 +8,7 @@
 // Linux sin pantalla, correrlo con xvfb-run.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const windows = process.platform === 'win32';
 const apus = process.env.APUS_EXE;
 
-const fixture = mkdtempSync(join(tmpdir(), 'apus-affinis-it-'));
+// La ruta real: en macOS el temporal es un symlink (/var → /private/var), y
+// git, y con él vscode.git, devuelven la real.
+const fixture = realpathSync(mkdtempSync(join(tmpdir(), 'apus-affinis-it-')));
 const ws = join(fixture, 'ws');
 const remotes = join(fixture, 'remotes');
 const env = {
@@ -92,7 +94,21 @@ try {
 
 const results = join(fixture, 'results.txt');
 if (existsSync(results)) {
-  console.log(readFileSync(results, 'utf8'));
+  const text = readFileSync(results, 'utf8');
+  console.log(text);
+  // En GitHub Actions, cada paso que falla es una anotación: se ve en el resumen
+  // de la corrida, y se puede leer sin descargar los registros.
+  if (process.env.GITHUB_ACTIONS) {
+    for (const failure of text.split(/\n(?=ok |FAIL )/).filter((r) => r.startsWith('FAIL '))) {
+      const [title, ...details] = failure.trim().split('\n');
+      const escape = (t) => t.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+      console.log(
+        `::error title=${escape(`${process.platform}: ${title.slice(5)}`)
+          .replaceAll(',', '%2C')
+          .replaceAll(':', '%3A')}::${escape(details.slice(0, 15).join('\n'))}`,
+      );
+    }
+  }
 }
 // Si algo falló, los repos quedan para mirarlos.
 if (status === 0) {

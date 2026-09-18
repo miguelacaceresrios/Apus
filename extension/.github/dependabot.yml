@@ -8,12 +8,21 @@ updates:
     schedule:
       interval: weekly
     groups:
-      # Todo lo de desarrollo en un solo pull request por semana.
+      # Lo menor de desarrollo, en un solo pull request por semana. Las
+      # versiones mayores llegan cada una por su lado, para probarlas solas.
       dev:
         dependency-type: development
+        update-types: [minor, patch]
     ignore:
       # @types/vscode sigue a engines.vscode: se sube a mano, junto con él.
       - dependency-name: '@types/vscode'
+      # @types/node sigue a la versión de Node del CI y de VS Code.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # TypeScript no sigue semver, y typescript-eslint tarda en soportar cada
+      # versión nueva: se sube a mano, cuando lo soporte.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
 
   - package-ecosystem: github-actions
     directory: /
