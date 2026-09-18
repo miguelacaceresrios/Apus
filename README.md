@@ -51,6 +51,7 @@ apus ui                     # abre la ventana
 | `-m, --message <msg>` | Mensaje de commit (igual que el argumento posicional). |
 | `-n, --dry-run` | Muestra los comandos sin ejecutar nada. |
 | `-q, --quiet` | Silencia la salida. |
+| `--json` | Al terminar, una línea JSON en stdout con el desenlace. Para programas: nunca pregunta nada. |
 | `-h, --help` | Ayuda. |
 | `-V, --version` | Versión. |
 
@@ -155,6 +156,29 @@ Variables de entorno, todas opcionales:
 | `3` | Falló el push. El commit ya quedó hecho: corregí y volvé a correr. |
 
 `apus status --json` devuelve el formato de un módulo `custom` de Waybar.
+
+## Salida JSON
+
+Con `--json`, apus escribe los pasos en stderr como siempre y, al terminar, **una sola línea** en stdout, salga bien o mal:
+
+```json
+{"apus":"2.2.0","ok":false,"code":3,"reason":"offline",
+ "summary":"el push falló: main → origin/main",
+ "hint":"sin conexión con el remoto: el commit quedó guardado, volvé a correr apus cuando haya conexión",
+ "committed":true,"pushed":false,"commit":"a1b2c3d",
+ "branch":"main","target":"origin/main","steps":[{"cmd":"git add -A"},{"cmd":"git commit -m …","out":"…"}]}
+```
+
+| Campo | Qué es |
+|---|---|
+| `ok`, `code` | Si salió bien, y el código de salida. |
+| `reason` | Solo si falló: `usage`, `notRepo`, `repo`, `detached`, `add`, `commit`, `noRemote`, `whichRemote`, `offline`, `auth`, `notFound`, `behind` o `push`. |
+| `summary`, `hint` | Lo mismo que se ve en la terminal, en castellano. Para mostrar, no para comparar: para eso está `reason`. |
+| `committed`, `pushed`, `commit` | Si hizo el commit (y cuál) y si subió. Con el código `3` el commit ya quedó hecho. |
+| `branch`, `target`, `url` | La rama, a dónde subió, y la página del repo, sin usuario ni token. |
+| `steps` | Cada comando de git que corrió, con lo que dijo. |
+
+Los campos se pueden agregar en versiones nuevas, pero no cambiar. Solo el binario tiene `--json`; `apus.sh` no.
 
 ## Seguridad
 

@@ -2,12 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 )
 
-const version = "2.1.0"
+const version = "2.2.0"
 
 var (
 	quiet  bool
@@ -101,6 +102,8 @@ OPCIONES
   -m, --message <msg>   Mensaje de commit (igual que el argumento posicional).
   -n, --dry-run         Muestra los comandos sin ejecutar nada.
   -q, --quiet           Silencia la salida de apus.
+      --json            Al terminar, una línea JSON en stdout con el desenlace,
+                        para programas. Nunca pregunta nada.
   -h, --help            Esta ayuda.
   -V, --version         Versión.
 
@@ -125,7 +128,16 @@ CÓDIGOS DE SALIDA
   0  todo bien (incluye "no había nada que hacer")
   1  error de repo (sin remoto, HEAD desprendido, commit rechazado por un hook)
   2  uso incorrecto
-  3  el push falló`
+  3  el push falló
+
+SALIDA JSON (--json)
+  {"apus": "2.2.0", "ok": false, "code": 3, "reason": "offline",
+   "summary": "el push falló: main → origin/main", "hint": "…",
+   "committed": true, "pushed": false, "commit": "a1b2c3d",
+   "branch": "main", "target": "origin/main", "url": "https://github.com/…",
+   "steps": [{"cmd": "git add -A"}, …]}
+  reason, solo si falla: usage, notRepo, repo, detached, add, commit,
+  noRemote, whichRemote, offline, auth, notFound, behind, push.`
 
 func printUsage() {
 	os.Stdout.WriteString(usageText + "\n")
@@ -159,8 +171,34 @@ func run(args []string) int {
 		message    string
 		messageSet bool
 		dryRun     bool
+		asJSON     bool
 		rest       []string
 	)
+	// Se mira antes que el resto: con --json, hasta un error de uso sale en JSON.
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		asJSON = asJSON || a == "--json"
+	}
+
+	// finish cierra el vuelo: el resumen en stderr y, con --json, la línea en stdout.
+	finish := func(res *Result, err error) int {
+		code := codeOK
+		if err != nil {
+			code = dieErr(err)
+		} else {
+			okMsg(res.Summary)
+			note(res.URL)
+		}
+		if asJSON {
+			printFlight(res, err, code)
+		}
+		return code
+	}
+	usage := func(msg, hint string) int {
+		return finish(nil, fail(codeUsage, "%s", msg).withHint(hint).withReason(reasonUsage))
+	}
 
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -172,7 +210,7 @@ func run(args []string) int {
 			switch {
 			case a == "-m" || a == "--message":
 				if i+1 >= len(args) {
-					return dieMsg(codeUsage, "-m necesita un mensaje", "")
+					return usage("-m necesita un mensaje", "")
 				}
 				i++
 				message, messageSet = args[i], true
@@ -182,6 +220,8 @@ func run(args []string) int {
 				dryRun = true
 			case a == "-q" || a == "--quiet":
 				quiet = true
+			case a == "--json":
+				// ya visto
 			case a == "-h" || a == "--help":
 				printUsage()
 				return codeOK
@@ -189,7 +229,7 @@ func run(args []string) int {
 				fmt.Printf("apus %s\n", version)
 				return codeOK
 			default:
-				return dieMsg(codeUsage, "opción desconocida: "+a, "probá 'apus --help'")
+				return usage("opción desconocida: "+a, "probá 'apus --help'")
 			}
 			continue
 		}
@@ -199,45 +239,44 @@ func run(args []string) int {
 
 	if len(rest) > 0 {
 		if messageSet {
-			return dieMsg(codeUsage, "mensaje duplicado: usá -m o el argumento posicional, no ambos", "")
+			return usage("mensaje duplicado: usá -m o el argumento posicional, no ambos", "")
 		}
 		message, messageSet = rest[0], true
 		if len(rest) > 1 {
-			return dieMsg(codeUsage, "demasiados argumentos: '"+rest[1]+"'", "¿le faltan comillas al mensaje?")
+			return usage("demasiados argumentos: '"+rest[1]+"'", "¿le faltan comillas al mensaje?")
 		}
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return dieMsg(codeRepo, "no pude leer el directorio actual: "+err.Error(), "")
+		return finish(nil, fail(codeRepo, "no pude leer el directorio actual: %s", err).withReason(reasonRepo))
 	}
 
 	// ¿Es un repo? Si no, ofrecemos iniciarlo.
 	if !gitOK(cwd, "rev-parse", "--is-inside-work-tree") {
-		if !canPrompt() {
-			return dieMsg(codeRepo, "esto no es un repositorio git: "+cwd, "")
+		if asJSON || !canPrompt() {
+			return finish(nil, fail(codeRepo, "esto no es un repositorio git: %s", cwd).withReason(reasonNotRepo))
 		}
 		warnMsg("esto no es un repositorio git: " + cwd)
 		yes, err := confirm("¿lo inicializo acá?", true)
 		if err != nil || !yes {
-			return dieMsg(codeRepo, "listo, no toco nada", "")
+			return finish(nil, fail(codeRepo, "listo, no toco nada").withReason(reasonNotRepo))
 		}
 		branch := env("APUS_DEFAULT_BRANCH", "main")
 		step("git init -b " + branch)
 		if dryRun {
-			okMsg("dry-run: todo lo demás depende de ese init")
-			return codeOK
+			return finish(&Result{Summary: "dry-run: todo lo demás depende de ese init"}, nil)
 		}
 		if out, err := gitCombined(cwd, "init", "-b", branch); err != nil {
 			if out2, err2 := gitCombined(cwd, "init"); err2 != nil {
-				return dieMsg(codeRepo, "no se pudo inicializar el repo: "+firstLine(out+out2), "")
+				return finish(nil, fail(codeRepo, "no se pudo inicializar el repo: %s", firstLine(out+out2)).withReason(reasonRepo))
 			}
 		}
 	}
 
 	repo, err := LoadRepo(cwd)
 	if err != nil {
-		return dieMsg(codeRepo, err.Error(), "")
+		return finish(nil, fail(codeRepo, "%s", err).withReason(reasonRepo))
 	}
 
 	flow := &Flow{
@@ -254,13 +293,55 @@ func run(args []string) int {
 		},
 	}
 
-	res, err := flow.Push(repo, message)
-	if err != nil {
-		return dieErr(err)
+	return finish(flow.Push(repo, message))
+}
+
+// flightJSON es la línea que imprime `apus --json` al terminar. Los campos se
+// pueden agregar, pero no cambiar: hay programas que la leen.
+type flightJSON struct {
+	Apus      string `json:"apus"`
+	OK        bool   `json:"ok"`
+	Code      int    `json:"code"`
+	Reason    string `json:"reason,omitempty"`
+	Summary   string `json:"summary"`
+	Hint      string `json:"hint,omitempty"`
+	Committed bool   `json:"committed"`
+	Pushed    bool   `json:"pushed"`
+	Commit    string `json:"commit,omitempty"`
+	Branch    string `json:"branch,omitempty"`
+	Target    string `json:"target,omitempty"`
+	URL       string `json:"url,omitempty"`
+	Steps     []Step `json:"steps"`
+}
+
+func printFlight(res *Result, err error, code int) {
+	out := flightJSON{Apus: version, OK: err == nil, Code: code, Steps: []Step{}}
+	if res != nil {
+		out.Summary = res.Summary
+		out.Committed = res.Committed
+		out.Pushed = res.Pushed
+		out.Commit = res.Commit
+		out.Branch = res.Branch
+		out.Target = res.Target
+		out.URL = res.URL
+		if res.Steps != nil {
+			out.Steps = res.Steps
+		}
 	}
-	okMsg(res.Summary)
-	note(res.URL)
-	return codeOK
+	if err != nil {
+		out.Summary = err.Error()
+		out.Reason = reasonRepo
+		if f, ok := err.(*Fail); ok {
+			out.Hint = f.Hint
+			if f.Reason != "" {
+				out.Reason = f.Reason
+			}
+		}
+	}
+	// Sin escapar <, > y &: la pista "git remote add origin <url>" se lee tal cual.
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetEscapeHTML(false)
+	_ = enc.Encode(out)
 }
 
 // confirm hace una pregunta de sí/no en la terminal.

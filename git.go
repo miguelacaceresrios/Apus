@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -233,7 +234,13 @@ func browseURL(remote string) string {
 	case strings.HasPrefix(u, "ssh://git@"):
 		u = "https://" + strings.TrimPrefix(u, "ssh://git@")
 	case strings.HasPrefix(u, "http://"), strings.HasPrefix(u, "https://"):
-		// tal cual
+		// Sin usuario ni token: esta URL se muestra y se imprime.
+		parsed, err := url.Parse(u)
+		if err != nil {
+			return ""
+		}
+		parsed.User = nil
+		u = parsed.String()
 	default:
 		return ""
 	}

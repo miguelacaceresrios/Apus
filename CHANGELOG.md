@@ -1,5 +1,15 @@
 # Cambios
 
+## 2.2.0 - 2026-09-18
+
+- `apus --json`: al terminar, una línea JSON en stdout con el desenlace (si hizo el commit, cuál, si subió, a dónde) y, si falló, el motivo en una palabra (`offline`, `auth`, `notFound`, `behind`, `noRemote`…). Los programas que usan apus, como la extensión de VS Code, ya no tienen que leer los mensajes en castellano. Con `--json` apus nunca pregunta nada.
+- Sin conexión, el error lo dice: "sin conexión con el remoto", y que el commit quedó guardado. Antes era un "el push falló" sin pista.
+- El repo de la URL que no existe (borrado, renombrado o sin acceso) también tiene su pista.
+
+**Arreglos**
+
+- Después de subir, apus mostraba la URL del remoto tal cual: si tenía un token (`https://usuario:token@github.com/…`), se imprimía. Ahora sale sin usuario ni token.
+
 ## 2.1.0 - 2026-09-17
 
 - Ventana nueva: **carpeta + URL + Subir**. Si la carpeta no es un repo lo inicializa, pone la URL como `origin` y sube todo.

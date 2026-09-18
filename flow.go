@@ -19,6 +19,9 @@ type Fail struct {
 	Code int
 	Msg  string
 	Hint string
+	// Reason es el motivo en una palabra, para los programas que leen `apus --json`:
+	// no tienen que reconocer los mensajes, que están en castellano y pueden cambiar.
+	Reason string
 }
 
 func (e *Fail) Error() string { return e.Msg }
@@ -28,6 +31,26 @@ func fail(code int, format string, a ...any) *Fail {
 }
 
 func (e *Fail) withHint(hint string) *Fail { e.Hint = hint; return e }
+
+func (e *Fail) withReason(reason string) *Fail { e.Reason = reason; return e }
+
+// Motivos de un vuelo que falla. Son parte de la salida de `apus --json`: se
+// pueden agregar, pero no cambiar.
+const (
+	reasonUsage       = "usage"       // opciones mal escritas
+	reasonNotRepo     = "notRepo"     // la carpeta no es un repo
+	reasonRepo        = "repo"        // otro problema con el repo
+	reasonDetached    = "detached"    // HEAD desprendido
+	reasonAdd         = "add"         // git add falló
+	reasonCommit      = "commit"      // git commit falló (por ejemplo, un hook)
+	reasonNoRemote    = "noRemote"    // el repo no tiene remotos
+	reasonWhichRemote = "whichRemote" // hay remotos, pero no se sabe a cuál subir
+	reasonOffline     = "offline"     // no se pudo llegar al remoto
+	reasonAuth        = "auth"        // git no pudo iniciar sesión
+	reasonNotFound    = "notFound"    // el repo de la URL no existe, o no hay acceso
+	reasonBehind      = "behind"      // el remoto tiene commits que este repo no tiene
+	reasonPush        = "push"        // el push falló por otra cosa
+)
 
 // Step es un comando ejecutado, para poder mostrar el registro después.
 type Step struct {
@@ -44,7 +67,8 @@ type Result struct {
 	Target    string `json:"target"`
 	URL       string `json:"url"`
 	Summary   string `json:"summary"`
-	Note      string `json:"note,omitempty"` // algo que conviene avisar, aunque haya salido bien
+	Note      string `json:"note,omitempty"`   // algo que conviene avisar, aunque haya salido bien
+	Commit    string `json:"commit,omitempty"` // el commit nuevo, abreviado
 }
 
 // Flow ejecuta add + commit + push. La UI y la CLI comparten esto; lo único que
@@ -85,7 +109,7 @@ func (f *Flow) Push(r *Repo, message string) (*Result, error) {
 	res := &Result{Branch: r.Branch}
 
 	if r.Detached {
-		return res, fail(codeRepo, "HEAD está desprendido (detached): hacé checkout de una rama antes de volar")
+		return res, fail(codeRepo, "HEAD está desprendido (detached): hacé checkout de una rama antes de volar").withReason(reasonDetached)
 	}
 
 	// ¿Hay algo que hacer?
@@ -103,7 +127,7 @@ func (f *Flow) Push(r *Repo, message string) (*Result, error) {
 	// ─── add + commit ───────────────────────────────────────────────────
 	if r.Dirty() {
 		if out, err := f.run(res, r.Path, "add", "-A"); err != nil {
-			return res, fail(codeRepo, "no se pudieron preparar los cambios: %s", firstLine(out))
+			return res, fail(codeRepo, "no se pudieron preparar los cambios: %s", firstLine(out)).withReason(reasonAdd)
 		}
 
 		// En dry-run no se agregó nada, así que no hay índice que mirar.
@@ -117,9 +141,13 @@ func (f *Flow) Push(r *Repo, message string) (*Result, error) {
 			}
 			if out, err := f.run(res, r.Path, "commit", "-m", message); err != nil {
 				return res, fail(codeRepo, "el commit falló: %s", firstLine(out)).
-					withHint("si tenés hooks de pre-commit, puede que uno lo haya rechazado")
+					withHint("si tenés hooks de pre-commit, puede que uno lo haya rechazado").
+					withReason(reasonCommit)
 			}
 			res.Committed = true
+			if !f.DryRun {
+				res.Commit, _ = git(r.Path, "rev-parse", "--short", "HEAD")
+			}
 		}
 	}
 
@@ -143,14 +171,17 @@ func (f *Flow) Push(r *Repo, message string) (*Result, error) {
 			// Si pidieron un remoto por nombre, el problema es ese y no otro.
 			if pref := env("APUS_REMOTE", ""); pref != "" {
 				return res, fail(codeRepo, "APUS_REMOTE apunta a '%s', que no es un remoto de este repo", pref).
-					withHint("los que hay: " + strings.Join(names, ", "))
+					withHint("los que hay: " + strings.Join(names, ", ")).
+					withReason(reasonWhichRemote)
 			}
 			if len(names) > 1 {
 				return res, fail(codeRepo, "hay varios remotos (%s) y ninguno se llama origin", strings.Join(names, ", ")).
-					withHint("elegí uno con APUS_REMOTE=<remoto>")
+					withHint("elegí uno con APUS_REMOTE=<remoto>").
+					withReason(reasonWhichRemote)
 			}
 			return res, fail(codeRepo, "este repo no tiene remoto").
-				withHint("git remote add origin <url>")
+				withHint("git remote add origin <url>").
+				withReason(reasonNoRemote)
 		}
 		res.Target = remote + "/" + r.Branch
 		pushArgs = []string{"push", "-u", remote, r.Branch}
@@ -159,15 +190,9 @@ func (f *Flow) Push(r *Repo, message string) (*Result, error) {
 	out, err := f.run(res, r.Path, pushArgs...)
 	if err != nil {
 		e := fail(codePush, "el push falló: %s → %s", r.Branch, res.Target)
-		switch {
-		case strings.Contains(out, "fetch first"),
-			strings.Contains(out, "non-fast-forward"),
-			strings.Contains(out, "[rejected]"):
-			e.Hint = "el remoto tiene commits que vos no tenés: corré 'git pull --rebase' y volvé a intentar"
-		case strings.Contains(out, "Authentication failed"),
-			strings.Contains(out, "Permission denied"),
-			strings.Contains(out, "could not read Username"):
-			e.Hint = "git no pudo autenticarse: revisá tu sesión de GitHub (Git Credential Manager) o tu clave SSH"
+		e.Reason, e.Hint = pushTrouble(out)
+		if e.Reason == reasonOffline && res.Committed {
+			e.Hint = "sin conexión con el remoto: el commit quedó guardado, volvé a correr apus cuando haya conexión"
 		}
 		return res, e
 	}
@@ -184,6 +209,36 @@ func (f *Flow) Push(r *Repo, message string) (*Result, error) {
 		res.Summary = fmt.Sprintf("%s → %s", r.Branch, res.Target)
 	}
 	return res, nil
+}
+
+// pushTrouble reconoce por qué falló un push, por lo que dijo git, y sugiere qué hacer.
+func pushTrouble(out string) (reason, hint string) {
+	text := strings.ToLower(out)
+	has := func(parts ...string) bool {
+		for _, p := range parts {
+			if strings.Contains(text, p) {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	// Primero la conexión: sin red, SSH también dice "could not read from remote repository".
+	case has("could not resolve host", "could not resolve hostname", "could not resolve proxy",
+		"temporary failure in name resolution", "no such host is known", "name or service not known",
+		"failed to connect to", "couldn't connect to server", "connection timed out", "operation timed out",
+		"network is unreachable", "connection refused", "connection reset"):
+		return reasonOffline, "sin conexión con el remoto: volvé a intentar cuando haya conexión"
+	case has("authentication failed", "permission denied", "could not read username", "could not read password",
+		"terminal prompts disabled", "invalid username or password", "invalid username or token"):
+		return reasonAuth, "git no pudo autenticarse: revisá tu sesión de GitHub (Git Credential Manager) o tu clave SSH"
+	case has("repository not found", "does not appear to be a git repository", "remote: not found") ||
+		(strings.Contains(text, "repository '") && strings.Contains(text, "' not found")):
+		return reasonNotFound, "el repo de la URL no existe o no tenés acceso: ¿lo borraron o le cambiaron el nombre? Cambiá la URL con 'git remote set-url origin <url>'"
+	case has("fetch first", "non-fast-forward", "[rejected]"):
+		return reasonBehind, "el remoto tiene commits que vos no tenés: corré 'git pull --rebase' y volvé a intentar"
+	}
+	return reasonPush, ""
 }
 
 // defaultMessage arma el mensaje autogenerado a partir de la plantilla.
