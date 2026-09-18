@@ -13,12 +13,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -54,12 +54,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -70,14 +70,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/apus"
-          if [ "$RUNNER_OS" = Windows ]; then asset=apus.exe; exe="$RUNNER_TEMP/apus/apus.exe"; else asset=apus-linux-amd64; exe="$RUNNER_TEMP/apus/apus"; fi
+          exe="$RUNNER_TEMP/apus/apus"
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Windows-X64) asset=apus.exe; exe="$exe.exe" ;;
+            Linux-X64) asset=apus-linux-amd64 ;;
+            macOS-ARM64) asset=apus-darwin-arm64 ;;
+            macOS-X64) asset=apus-darwin-amd64 ;;
+            *) echo "no hay binario de apus para $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
           curl -fsSL -o "$exe" "https://github.com/miguelacaceresrios/Apus/releases/latest/download/$asset"
           chmod +x "$exe"
           "$exe" --version
           echo "APUS_EXE=$exe" >> "$GITHUB_ENV"
 
       - name: VS Code en caché
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .vscode-test
           key: vscode-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -89,6 +96,6 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:integration
 
-      - name: pruebas de integración (Windows)
-        if: runner.os == 'Windows'
+      - name: pruebas de integración (Windows y macOS)
+        if: runner.os != 'Linux'
         run: npm run test:integration

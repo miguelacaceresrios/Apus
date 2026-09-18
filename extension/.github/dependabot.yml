@@ -1,0 +1,24 @@
+# Actualizaciones de dependencias. Las acciones están fijadas por commit, y
+# Dependabot mueve el hash y el comentario con la versión juntos.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # Todo lo de desarrollo en un solo pull request por semana.
+      dev:
+        dependency-type: development
+    ignore:
+      # @types/vscode sigue a engines.vscode: se sube a mano, junto con él.
+      - dependency-name: '@types/vscode'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
