@@ -1,0 +1,12 @@
+# apus no tiene dependencias de Go: solo se actualizan las acciones, que están
+# fijadas por commit. Dependabot mueve el hash y el comentario con la versión juntos.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

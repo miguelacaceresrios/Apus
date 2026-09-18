@@ -1,6 +1,6 @@
 # Cambios
 
-## 2.1.0
+## 2.1.0 - 2026-09-17
 
 - Ventana nueva: **carpeta + URL + Subir**. Si la carpeta no es un repo lo inicializa, pone la URL como `origin` y sube todo.
 - Avisa antes de cambiar el remoto de una carpeta, se niega a subir una subcarpeta de otro repo y explica el rechazo cuando el repo de GitHub ya tiene archivos.

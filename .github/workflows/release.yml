@@ -16,9 +16,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
 
@@ -54,11 +54,12 @@ jobs:
       - name: notas de la versión
         run: |
           version="${GITHUB_REF_NAME#v}"
-          awk -v v="## $version" '$0 == v { on = 1; next } /^## / { if (on) exit } on' CHANGELOG.md > notes.md
+          # "## 2.2.0" o "## 2.2.0 - 2026-09-18".
+          awk -v v="## $version" '$0 == v || index($0, v " - ") == 1 { on = 1; next } /^## / { if (on) exit } on' CHANGELOG.md > notes.md
           [ -s notes.md ] || { echo "CHANGELOG.md no tiene la sección ## $version"; exit 1; }
 
       - name: release en GitHub
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           name: apus ${{ github.ref_name }}
           body_path: notes.md
