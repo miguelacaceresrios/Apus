@@ -7,6 +7,7 @@
 <p align="center">Tus repos se suben solos, y ves en qué anda cada uno sin salir de VS Code.</p>
 
 <p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=miguelacaceresr.apus-affinis"><img src="https://img.shields.io/visual-studio-marketplace/v/miguelacaceresr.apus-affinis?label=Marketplace" alt="Marketplace"></a>
   <a href="https://github.com/miguelacaceresrios/apus-affinis/actions/workflows/ci.yml"><img src="https://github.com/miguelacaceresrios/apus-affinis/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/miguelacaceresrios/apus-affinis/releases/latest"><img src="https://img.shields.io/github/v/release/miguelacaceresrios/apus-affinis" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/miguelacaceresrios/apus-affinis" alt="Licencia"></a>
@@ -21,6 +22,12 @@
 <p align="center">
   <img src="images/screenshots/view.png" width="900" alt="La vista Apus: portfolio vigilado, con 2 cambios y el próximo auto-commit en 4:55; api frenado por un archivo .env y un token en src/config.ts; notes todavía sin URL.">
 </p>
+
+## Instalar
+
+1. Instalá **Apus affinis** desde el [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=miguelacaceresr.apus-affinis), o con `code --install-extension miguelacaceresr.apus-affinis`. Cada versión también está como `.vsix` en [Releases](https://github.com/miguelacaceresrios/apus-affinis/releases/latest).
+2. Conseguí apus: la primera vez, la extensión ofrece **Descargar apus**, que baja el binario justo para tu sistema.
+3. Abrí un repo git y, en la vista Apus, tocá el ojo al lado para vigilarlo.
 
 ## Qué hace
 

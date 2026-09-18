@@ -31,10 +31,14 @@ const warningColor = new vscode.ThemeColor('problemsWarningIcon.foreground');
  * cambia.
  */
 export class ReposView implements vscode.TreeDataProvider<Node>, vscode.Disposable {
-  private readonly emitter = new vscode.EventEmitter<Node | undefined>();
+  private readonly emitter = new vscode.EventEmitter<Node | Node[] | undefined>();
   private readonly view: vscode.TreeView<Node>;
   private readonly subscriptions: vscode.Disposable[];
   private timer: ReturnType<typeof setTimeout> | undefined;
+  /** Un nodo por repo, siempre el mismo: así se puede refrescar un repo solo. */
+  private readonly repoNodes = new Map<string, Node & { kind: 'repo' }>();
+  /** Cambió algo mientras la vista no se veía: se redibuja al volver. */
+  private stale = false;
 
   readonly onDidChangeTreeData = this.emitter.event;
 
@@ -46,14 +50,20 @@ export class ReposView implements vscode.TreeDataProvider<Node>, vscode.Disposab
     this.subscriptions = [
       registry.onDidChange(() => this.refresh()),
       binary.onDidChange(() => this.refresh()),
-      this.view.onDidChangeVisibility(() => this.refresh()),
+      this.view.onDidChangeVisibility((e) => {
+        if (e.visible && this.stale) {
+          this.refresh();
+        } else if (e.visible) {
+          this.scheduleTick();
+        }
+      }),
     ];
     this.refresh();
   }
 
   getChildren(node?: Node): Node[] {
     if (!node) {
-      const repos = this.registry.all.map((repo): Node => ({ kind: 'repo', repo }));
+      const repos = this.registry.all.map((repo) => this.repoNode(repo));
       const lost = this.registry.lost.map((entry): Node => ({ kind: 'lost', entry }));
       // Sin nada, VS Code muestra el mensaje de bienvenida (viewsWelcome en package.json).
       if (repos.length + lost.length === 0) {
@@ -145,21 +155,55 @@ export class ReposView implements vscode.TreeDataProvider<Node>, vscode.Disposab
     return item;
   }
 
-  private refresh(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = undefined;
+  private repoNode(repo: RepoController): Node & { kind: 'repo' } {
+    let node = this.repoNodes.get(repo.key);
+    if (node?.repo !== repo) {
+      node = { kind: 'repo', repo };
+      this.repoNodes.set(repo.key, node);
     }
-    this.emitter.fire(undefined);
+    return node;
+  }
 
+  private refresh(): void {
     const all = this.registry.all;
+    // El número sobre el ícono se ve aunque la vista esté cerrada.
     const withChanges = all.filter((c) => c.pending > 0 || c.ahead > 0).length;
     this.view.badge = withChanges > 0 ? { value: withChanges, tooltip: reposWithChanges(withChanges) } : undefined;
 
-    // Las cuentas regresivas corren solo mientras la vista está a la vista.
-    if (this.view.visible && all.some((c) => (c.nextFlightAt ?? c.retryAt) !== undefined && !c.flying)) {
-      this.timer = setTimeout(() => this.refresh(), 1000 - (Date.now() % 1000) + 10);
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    if (!this.view.visible) {
+      this.stale = true;
+      return;
     }
+    this.stale = false;
+    const keys = new Set(all.map((c) => c.key));
+    for (const key of this.repoNodes.keys()) {
+      if (!keys.has(key)) {
+        this.repoNodes.delete(key);
+      }
+    }
+    this.emitter.fire(undefined);
+    this.scheduleTick();
+  }
+
+  /** Las cuentas regresivas: una vez por segundo, solo los repos que cuentan, y solo con la vista a la vista. */
+  private scheduleTick(): void {
+    const counting = () => this.registry.all.filter((c) => (c.nextFlightAt ?? c.retryAt) !== undefined && !c.flying);
+    if (this.timer || counting().length === 0) {
+      return;
+    }
+    this.timer = setTimeout(
+      () => {
+        this.timer = undefined;
+        if (!this.view.visible) {
+          return;
+        }
+        this.emitter.fire(counting().map((c) => this.repoNode(c)));
+        this.scheduleTick();
+      },
+      1000 - (Date.now() % 1000) + 10,
+    );
   }
 }
 

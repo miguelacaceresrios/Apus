@@ -2,10 +2,11 @@
   "name": "apus-affinis",
   "displayName": "Apus affinis",
   "description": "%description%",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "preview": true,
   "publisher": "miguelacaceresr",
   "license": "MIT",
+  "pricing": "Free",
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1b1a1f",
@@ -33,9 +34,9 @@
     "autocommit",
     "push",
     "commit",
-    "sync",
+    "auto push",
     "watcher",
-    "backup"
+    "secret scanning"
   ],
   "extensionKind": [
     "workspace"

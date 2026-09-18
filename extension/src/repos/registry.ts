@@ -19,12 +19,17 @@ export class Registry implements vscode.Disposable {
   /** Carpetas que estaban en la lista y ya no son un repo que se pueda abrir. */
   private readonly lostFolders = new Map<string, LostFolder>();
   private readonly emitter = new vscode.EventEmitter<void>();
-  private readonly disposables: vscode.Disposable[] = [this.emitter];
+  private readonly activeEmitter = new vscode.EventEmitter<void>();
+  private readonly disposables: vscode.Disposable[] = [this.emitter, this.activeEmitter];
   private lastActive: RepoController | undefined;
   private watchingAny = false;
   private nestingTimer: ReturnType<typeof setTimeout> | undefined;
+  private changeTimer: ReturnType<typeof setTimeout> | undefined;
 
+  /** Cambió algo de algún repo. Las ráfagas llegan juntas, en un solo aviso. */
   readonly onDidChange = this.emitter.event;
+  /** Cambió el editor activo: solo le importa a la barra de estado. */
+  readonly onDidChangeActive = this.activeEmitter.event;
 
   constructor(
     private readonly git: GitAPI,
@@ -37,7 +42,7 @@ export class Registry implements vscode.Disposable {
     this.disposables.push(
       git.onDidOpenRepository((repo) => this.open(repo)),
       git.onDidCloseRepository((repo) => void this.close(repo)),
-      vscode.window.onDidChangeActiveTextEditor(() => this.emitter.fire()),
+      vscode.window.onDidChangeActiveTextEditor(() => this.activeEmitter.fire()),
       vscode.workspace.onDidSaveTextDocument((doc) => this.find(doc.uri)?.noteSave()),
       vscode.workspace.onDidChangeConfiguration((e) => {
         for (const c of this.controllers.values()) {
@@ -224,9 +229,8 @@ export class Registry implements vscode.Disposable {
   }
 
   dispose(): void {
-    if (this.nestingTimer) {
-      clearTimeout(this.nestingTimer);
-    }
+    clearTimeout(this.nestingTimer);
+    clearTimeout(this.changeTimer);
     for (const c of this.controllers.values()) {
       c.dispose();
     }
@@ -342,13 +346,23 @@ export class Registry implements vscode.Disposable {
     }
   }
 
+  /**
+   * Avisa que algo cambió. vscode.git manda ráfagas (varios repos, varios
+   * eventos por guardado): la barra y la vista se redibujan una vez por ráfaga.
+   */
   private changed(): void {
-    // La guía de primeros pasos marca "vigilá un repo" con esta clave.
-    const watchingAny = [...this.controllers.values()].some((c) => c.watching);
-    if (watchingAny !== this.watchingAny) {
-      this.watchingAny = watchingAny;
-      void vscode.commands.executeCommand('setContext', 'apus.watchingAny', watchingAny);
+    if (this.changeTimer) {
+      return;
     }
-    this.emitter.fire();
+    this.changeTimer = setTimeout(() => {
+      this.changeTimer = undefined;
+      // La guía de primeros pasos marca "vigilá un repo" con esta clave.
+      const watchingAny = [...this.controllers.values()].some((c) => c.watching);
+      if (watchingAny !== this.watchingAny) {
+        this.watchingAny = watchingAny;
+        void vscode.commands.executeCommand('setContext', 'apus.watchingAny', watchingAny);
+      }
+      this.emitter.fire();
+    }, 30);
   }
 }

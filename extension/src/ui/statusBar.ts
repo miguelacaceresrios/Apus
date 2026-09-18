@@ -21,21 +21,27 @@ export class StatusBar implements vscode.Disposable {
   private readonly item = vscode.window.createStatusBarItem('apus.status', vscode.StatusBarAlignment.Left, 10);
   private readonly subscriptions: vscode.Disposable[];
   private timer: ReturnType<typeof setTimeout> | undefined;
+  /** Cuándo se armó el tooltip: en la cuenta regresiva cambia el texto cada segundo, el tooltip no hace falta. */
+  private tooltipAt = 0;
+  private shown: string | undefined;
 
   constructor(
     private readonly registry: Registry,
     private readonly binary: ApusBinary,
   ) {
     this.item.name = 'Apus';
-    this.subscriptions = [registry.onDidChange(() => this.render()), binary.onDidChange(() => this.render())];
+    this.subscriptions = [
+      registry.onDidChange(() => this.render()),
+      registry.onDidChangeActive(() => this.render()),
+      binary.onDidChange(() => this.render()),
+    ];
     this.render();
   }
 
-  private render(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = undefined;
-    }
+  /** `tick`: solo pasó un segundo de la cuenta regresiva. */
+  private render(tick = false): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
 
     const lookup = this.binary.state;
     if (lookup && !lookup.ok) {
@@ -46,6 +52,7 @@ export class StatusBar implements vscode.Disposable {
         `\n\n[$(tools) ${vscode.l10n.t('Fix…')}](command:apus.fixBinary) &nbsp;·&nbsp; [$(book) ${vscode.l10n.t('Get Started')}](command:apus.getStarted)`,
       );
       this.show(
+        'binary',
         `$(${LOGO}) $(warning)`,
         md,
         { command: 'apus.fixBinary', title: vscode.l10n.t('Fix…') },
@@ -89,9 +96,12 @@ export class StatusBar implements vscode.Disposable {
       text += ` ${clock(c.lastPushAt)}`;
     }
 
+    // El tooltip se rearma si cambió el repo, fuera de la cuenta regresiva, o cada 15 s para los "hace 5 min".
+    const fresh = !tick || this.shown !== c.key || Date.now() - this.tooltipAt >= 15_000;
     this.show(
+      c.key,
       text,
-      tooltip(c),
+      fresh ? tooltip(c) : undefined,
       { command: 'apus.menu', title: vscode.l10n.t('Menu'), arguments: [c.key] },
       needsAttention(c),
       `apus ${c.name}: ${summary(c)}`,
@@ -100,12 +110,23 @@ export class StatusBar implements vscode.Disposable {
     // Con cuenta regresiva, se actualiza cada segundo; si no, lo justo para que
     // los "hace 5 min" del tooltip no queden viejos.
     const delay = next ? 1000 - (Date.now() % 1000) + 10 : 30_000;
-    this.timer = setTimeout(() => this.render(), delay);
+    this.timer = setTimeout(() => this.render(next !== undefined), delay);
   }
 
-  private show(text: string, md: vscode.MarkdownString, command: vscode.Command, warning: boolean, label: string): void {
+  private show(
+    what: string,
+    text: string,
+    md: vscode.MarkdownString | undefined,
+    command: vscode.Command,
+    warning: boolean,
+    label: string,
+  ): void {
+    this.shown = what;
     this.item.text = text;
-    this.item.tooltip = md;
+    if (md) {
+      this.item.tooltip = md;
+      this.tooltipAt = Date.now();
+    }
     this.item.command = command;
     this.item.backgroundColor = warning ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
     this.item.accessibilityInformation = { label };

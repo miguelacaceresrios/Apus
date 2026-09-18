@@ -2,12 +2,19 @@
 
 Notable changes to Apus affinis. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.5.1 - 2026-09-18
+
+**Lighter**
+
+- Switching editor tabs no longer redraws the Apus view: only the status bar follows the active editor.
+- Bursts of Git events (a save, several repositories) redraw the status bar and the view once, not once per event.
+- During a countdown, only the repositories that are counting are redrawn each second, and nothing is redrawn while the view is hidden. The status bar updates its text each second and its tooltip only when something changes.
 
 **Fixes**
 
 - **Signed commits.** With `commit.gpgsign` and a GPG passphrase that isn't cached, an auto-commit could open the passphrase window every time or wait for it until the timeout. Now it checks first, without asking: if GPG would ask, it skips the auto-commit and says to push by hand once, which caches the passphrase.
 - **Git LFS.** Files tracked by LFS are no longer held back as too big: git pushes a small pointer, not the file.
+- An **Install** section in the README, and Marketplace keywords that match what the extension does.
 - **Errors in your language.** Failures are explained in VS Code's display language instead of showing apus's Spanish messages, which stay in the log. git runs in English during a push, so its errors are recognized whatever your system language.
 
 ## 0.5.0 - 2026-09-18
