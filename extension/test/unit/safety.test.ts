@@ -238,6 +238,15 @@ test('checkPending en un repo sin commits, y con avisos permitidos', async () =>
   assert.deepEqual(brief(allowed.findings), ['privateKey id_ed25519:1', 'sshKey id_ed25519']);
 });
 
+test('checkPending: un archivo grande en Git LFS no se frena', async () => {
+  const root = await tempRepo();
+  await write(root, '.gitattributes', '*.psd filter=lfs diff=lfs merge=lfs -text\n');
+  await write(root, 'arte.psd', Buffer.alloc(2000, 1));
+  await write(root, 'video.bin', Buffer.alloc(2000, 1));
+  const { findings } = await checkPending(GIT, root, { maxFileBytes: 1000 });
+  assert.deepEqual(brief(findings), ['largeFile video.bin']);
+});
+
 test('addToGitignore y stopTracking dejan de avisar', async () => {
   const root = await tempRepo();
   await write(root, 'credentials.json', '{}\n');

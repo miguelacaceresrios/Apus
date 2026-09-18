@@ -51,12 +51,58 @@ export function duration(ms: number): string {
   return m < 60 ? vscode.l10n.t('{0} min', m) : vscode.l10n.t('{0} h', Math.round(m / 6) / 10);
 }
 
-/** Lo que dijo apus, o una explicación del código si no dijo nada. */
+/**
+ * Qué pasó, en el idioma de VS Code. Los mensajes de apus están en castellano:
+ * se usan solo si apus no dio un motivo (apus 2.1, o un motivo nuevo).
+ */
 export function flightSummary(flight: Flight): string {
+  const reason = flight.ok ? undefined : reasonText(flight.reason);
+  if (reason) {
+    return reason;
+  }
+  if (flight.ok && !flight.committed && !flight.pushed) {
+    return vscode.l10n.t('nothing to push');
+  }
   if (flight.summary) {
     return flight.summary;
   }
   return flight.code === -1 ? vscode.l10n.t('apus did not finish in time') : vscode.l10n.t('apus exited with code {0}', flight.code);
+}
+
+/** Los motivos de `apus --json`, explicados. */
+function reasonText(reason: string | undefined): string | undefined {
+  switch (reason) {
+    case 'usage':
+      return vscode.l10n.t('apus did not understand the command. Is it up to date?');
+    case 'notRepo':
+      return vscode.l10n.t('the folder is not a git repository');
+    case 'repo':
+      return vscode.l10n.t('git could not read the repository');
+    case 'detached':
+      return vscode.l10n.t('HEAD is detached: check out a branch');
+    case 'add':
+      return vscode.l10n.t('git could not stage the changes');
+    case 'commit':
+      return vscode.l10n.t('the commit failed. A pre-commit hook may have rejected it');
+    case 'noRemote':
+      return vscode.l10n.t('there is no URL to push to yet');
+    case 'whichRemote':
+      return vscode.l10n.t('there are several remotes and none is called origin');
+    case 'offline':
+      return vscode.l10n.t('no connection to the remote');
+    case 'auth':
+      return vscode.l10n.t('git could not sign in to the remote');
+    case 'notFound':
+      return vscode.l10n.t('the repository to push to was not found');
+    case 'behind':
+      return vscode.l10n.t('the remote has commits you do not have');
+    case 'push':
+      return vscode.l10n.t('the push failed');
+    case 'signing':
+      return vscode.l10n.t('GPG needs your passphrase to sign. Push by hand once, and auto-commits go on');
+    default:
+      return undefined;
+  }
 }
 
 export function binaryProblem(problem: BinaryProblem, path = ''): string {
@@ -100,6 +146,8 @@ export function fixLabel(trouble: Trouble | undefined): string | undefined {
       return vscode.l10n.t('Change URL…');
     case 'behind':
       return vscode.l10n.t('Open Terminal');
+    case 'signing':
+      return vscode.l10n.t('Push Now');
     default:
       return undefined;
   }

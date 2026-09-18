@@ -85,6 +85,7 @@ export async function fixLast(repo: RepoController, log: vscode.LogOutputChannel
       openTerminal(repo, 'git pull --rebase');
       return;
     case 'offline':
+    case 'signing':
       await pushNow(repo);
       return;
     default:

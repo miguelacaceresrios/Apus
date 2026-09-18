@@ -2,6 +2,14 @@
 
 Notable changes to Apus affinis. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+**Fixes**
+
+- **Signed commits.** With `commit.gpgsign` and a GPG passphrase that isn't cached, an auto-commit could open the passphrase window every time or wait for it until the timeout. Now it checks first, without asking: if GPG would ask, it skips the auto-commit and says to push by hand once, which caches the passphrase.
+- **Git LFS.** Files tracked by LFS are no longer held back as too big: git pushes a small pointer, not the file.
+- **Errors in your language.** Failures are explained in VS Code's display language instead of showing apus's Spanish messages, which stay in the log. git runs in English during a push, so its errors are recognized whatever your system language.
+
 ## 0.5.0 - 2026-09-18
 
 - **Offline is not an error.** When the remote can't be reached, the repository shows a cloud instead of a warning, the commit stays on your machine, and apus tries again on its own after 1, 2 and 5 minutes, then every 10, while the repository is watched. Auto-commits say nothing; a push by hand says the commit is saved.

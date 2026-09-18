@@ -72,11 +72,12 @@ test('parseFlight no deja pasar el token que imprime apus', () => {
 
 test('flightEnv: en segundo plano no se abre ningún pedido de claves', () => {
   const base = { PATH: '/bin' };
-  assert.deepEqual(flightEnv(base, false), { PATH: '/bin', GIT_TERMINAL_PROMPT: '0', NO_COLOR: '1' });
+  assert.deepEqual(flightEnv(base, false), { PATH: '/bin', GIT_TERMINAL_PROMPT: '0', NO_COLOR: '1', LC_ALL: 'C' });
   assert.deepEqual(flightEnv(base, true), {
     PATH: '/bin',
     GIT_TERMINAL_PROMPT: '0',
     NO_COLOR: '1',
+    LC_ALL: 'C',
     GCM_INTERACTIVE: 'never',
     SSH_ASKPASS_REQUIRE: 'never',
   });

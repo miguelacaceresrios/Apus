@@ -9,6 +9,7 @@ import { MissingFolderError } from '../core/process';
 import { chooseRemote, redactCredentials, shortUrl } from '../core/remote';
 import { addToGitignore, checkPending, stopTracking, type Finding } from '../core/safety';
 import { FlightScheduler, retryDelayMs } from '../core/scheduler';
+import { commitSigning, signsQuietly } from '../core/signing';
 import { allowKey, belongsTo, repoKey } from '../core/stores';
 import type { Repository } from '../git/api';
 import { launch } from './flight';
@@ -27,6 +28,18 @@ const EMPTY: RepoSnapshot = {
   upToDate: false,
   changeSignature: '',
   headSignature: '',
+};
+
+/** Un auto-commit que no se intentó: firmar habría abierto la ventana de la contraseña de GPG. */
+const NEEDS_PASSPHRASE: Flight = {
+  code: -1,
+  ok: false,
+  summary: undefined,
+  detail: undefined,
+  committed: false,
+  pushed: false,
+  reason: 'signing',
+  output: 'gpg needs the passphrase to sign the commit, and it is not cached',
 };
 
 /** Un repo: su estado, su vigilancia y sus vuelos. */
@@ -498,6 +511,11 @@ export class RepoController implements vscode.Disposable {
       if (!(await this.clearedForTakeoff(kind))) {
         return;
       }
+      if (kind === 'auto' && !(await this.signsQuietly())) {
+        log.warn(`[${this.name}] commits are signed with GPG and its passphrase is not cached: push by hand once`);
+        this.report(kind, NEEDS_PASSPHRASE, changes, this.state.remote?.url);
+        return;
+      }
       log.info(`[${this.name}] ${retry ? 'retrying the push' : kind === 'auto' ? 'auto-commit' : 'manual push'} with ${binary}`);
       const result = await launch({
         git: this.services.gitPath,
@@ -590,6 +608,12 @@ export class RepoController implements vscode.Disposable {
       }
     }
     this.services.onFlight({ repo: this, kind, flight, changes }, repeated);
+  }
+
+  /** Si los commits se firman, que se pueda sin abrir la ventana de la contraseña. */
+  private async signsQuietly(): Promise<boolean> {
+    const signing = await commitSigning(this.services.gitPath, this.root.fsPath);
+    return !signing || (await signsQuietly(signing, this.root.fsPath));
   }
 
   private async refreshHistory(): Promise<void> {

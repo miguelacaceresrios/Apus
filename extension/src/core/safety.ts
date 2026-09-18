@@ -224,7 +224,30 @@ async function checkChanges(git: string, root: string, options: CheckOptions): P
       findings.push(...scanText(buffer.toString('utf8')).map((hit) => ({ path: relative, rule: hit.rule, line: hit.line, tracked })));
     }
   }
+
+  // Con Git LFS se commitea un puntero chico, no el archivo: su tamaño en disco no cuenta.
+  const large = findings.filter((f) => f.rule === 'largeFile').map((f) => f.path);
+  if (large.length > 0) {
+    const lfs = await lfsTracked(git, root, large);
+    return { findings: findings.filter((f) => f.rule !== 'largeFile' || !lfs.has(f.path)), partial };
+  }
   return { findings, partial };
+}
+
+/** De estos archivos, los que `.gitattributes` manda a Git LFS. */
+async function lfsTracked(git: string, root: string, paths: readonly string[]): Promise<Set<string>> {
+  const r = await runProcess(git, ['-c', 'core.quotepath=false', 'check-attr', '-z', 'filter', '--', ...paths], { cwd: root });
+  const lfs = new Set<string>();
+  if (r.code === 0) {
+    // -z: ruta, atributo y valor, cada uno terminado en NUL.
+    const parts = r.stdout.split('\0');
+    for (let i = 0; i + 2 < parts.length; i += 3) {
+      if (parts[i + 2] === 'lfs') {
+        lfs.add(parts[i]!);
+      }
+    }
+  }
+  return lfs;
 }
 
 /** Los commits que no están en ningún remoto: el push los sube aunque no los haya hecho apus. */

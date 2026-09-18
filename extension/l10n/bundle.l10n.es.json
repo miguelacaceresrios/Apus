@@ -228,5 +228,18 @@
   "The commit is saved here.": "El commit quedó guardado acá.",
   "no connection": "sin conexión",
   "trying to push again: {0}": "próximo intento de subir: {0}",
-  "apus: {0} is not on the list.": "apus: {0} no está en la lista."
+  "apus: {0} is not on the list.": "apus: {0} no está en la lista.",
+  "nothing to push": "nada que subir",
+  "apus did not understand the command. Is it up to date?": "apus no entendió el comando. ¿Está actualizado?",
+  "the folder is not a git repository": "la carpeta no es un repositorio git",
+  "git could not read the repository": "git no pudo leer el repositorio",
+  "HEAD is detached: check out a branch": "HEAD está desprendido: cambiá a una rama",
+  "git could not stage the changes": "git no pudo preparar los cambios",
+  "the commit failed. A pre-commit hook may have rejected it": "el commit falló. Puede que lo haya rechazado un hook de pre-commit",
+  "there are several remotes and none is called origin": "hay varios remotos y ninguno se llama origin",
+  "git could not sign in to the remote": "git no pudo iniciar sesión en el remoto",
+  "the repository to push to was not found": "no se encontró el repositorio al que sube",
+  "the remote has commits you do not have": "el remoto tiene commits que vos no tenés",
+  "the push failed": "el push falló",
+  "GPG needs your passphrase to sign. Push by hand once, and auto-commits go on": "GPG necesita tu contraseña para firmar. Subí a mano una vez y los auto-commits siguen"
 }

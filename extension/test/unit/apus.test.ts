@@ -154,14 +154,14 @@ test('parseJsonFlight: subida completa', () => {
   assert.match(f.output, /^» git add -A/);
 });
 
-test('parseJsonFlight: falla sin conexión, con la pista y sin tokens', () => {
+test('parseJsonFlight: falla sin conexión, sin la pista en castellano y sin tokens', () => {
   const stdout = JSON.stringify({
     apus: '2.2.0',
     ok: false,
     code: 3,
     reason: 'offline',
-    summary: 'el push falló: main → origin/main',
-    hint: ['sin conexión con ', 'https://u:', 'secreto1234', '@github.com'].join(''),
+    summary: ['el push falló: ', 'https://u:', 'secreto1234', '@github.com'].join(''),
+    hint: 'sin conexión con el remoto',
     committed: true,
     pushed: false,
   });
@@ -169,7 +169,9 @@ test('parseJsonFlight: falla sin conexión, con la pista y sin tokens', () => {
   assert.equal(f.ok, false);
   assert.equal(f.reason, 'offline');
   assert.equal(f.committed, true);
-  assert.equal(f.detail, 'sin conexión con https://***@github.com');
+  assert.equal(f.summary, 'el push falló: https://***@github.com');
+  // La interfaz explica el motivo en su idioma; la pista de apus queda en el registro.
+  assert.equal(f.detail, undefined);
 });
 
 test('parseJsonFlight: sin JSON, o si apus se pasó del tiempo', () => {

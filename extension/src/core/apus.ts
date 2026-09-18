@@ -102,7 +102,9 @@ export async function flyApus(binary: string, cwd: string, options: FlightOption
  * de la clave SSH: si faltan credenciales, falla, y subir a mano lo resuelve.
  */
 export function flightEnv(base: NodeJS.ProcessEnv, background: boolean): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...base, GIT_TERMINAL_PROMPT: '0', NO_COLOR: '1' };
+  // LC_ALL=C: git en inglés, que es como se reconocen sus errores. Los mensajes
+  // de apus son suyos y no cambian.
+  const env: NodeJS.ProcessEnv = { ...base, GIT_TERMINAL_PROMPT: '0', NO_COLOR: '1', LC_ALL: 'C' };
   if (background) {
     env.GCM_INTERACTIVE = 'never';
     env.SSH_ASKPASS_REQUIRE = 'never';
@@ -169,7 +171,9 @@ export function parseJsonFlight(code: number, stdout: string, stderr: string): F
     code,
     ok,
     summary: text(d.summary),
-    detail: ok ? text(d.url) : text(d.hint),
+    // Si falló, la pista de apus (en castellano) queda en el registro; la
+    // interfaz explica el motivo en el idioma de VS Code.
+    detail: ok ? text(d.url) : undefined,
     committed: d.committed === true,
     pushed: d.pushed === true,
     reason: ok ? undefined : text(d.reason),
@@ -227,7 +231,9 @@ export type Trouble =
   /** El remoto tiene commits que este repo no tiene. */
   | 'behind'
   /** No se pudo llegar al remoto: sin internet, o el servidor no contesta. Se reintenta solo. */
-  | 'offline';
+  | 'offline'
+  /** Los commits se firman con GPG y la contraseña no está en la caché: hay que subir a mano una vez. */
+  | 'signing';
 
 /** Los motivos de `apus --json` que tienen arreglo. */
 const REASONS: Record<string, Trouble> = {
@@ -236,6 +242,7 @@ const REASONS: Record<string, Trouble> = {
   auth: 'auth',
   behind: 'behind',
   offline: 'offline',
+  signing: 'signing',
 };
 
 export function diagnose(flight: Flight): Trouble | undefined {
