@@ -2,7 +2,7 @@
 
 Notable changes to Apus affinis. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.5.0 - 2026-09-18
 
 - **Offline is not an error.** When the remote can't be reached, the repository shows a cloud instead of a warning, the commit stays on your machine, and apus tries again on its own after 1, 2 and 5 minutes, then every 10, while the repository is watched. Auto-commits say nothing; a push by hand says the commit is saved.
 - **Auto-commit messages name their files.** The default `apus.messageTemplate` is now `chore: update {files}`, like `chore: update app.ts, README.md +2`, and the body lists every file with its status. `{date}` still works; a custom template is kept as it is.
