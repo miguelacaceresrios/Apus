@@ -12,6 +12,7 @@ import { binaryProblem, clock } from './text';
  *   ⌃ ⏸ 3            en pausa
  *   ⌃ ⟳              subiendo
  *   ⌃ ⌁              sin URL a dónde subir
+ *   ⌃ ☁ · en 1:40    sin conexión, vuelve a intentar en 1:40
  *   ⌃ ⚠              falló, no está la carpeta o no está apus (con fondo de advertencia)
  *
  * El detalle y las acciones están en el tooltip; un clic abre el menú.
@@ -67,6 +68,8 @@ export class StatusBar implements vscode.Disposable {
       text += ' $(sync~spin)';
     } else if (c.held) {
       text += ' $(shield)';
+    } else if (c.offline) {
+      text += ' $(cloud)';
     } else if (c.lastError) {
       text += ' $(warning)';
     } else if (c.blocked === 'noRemote') {

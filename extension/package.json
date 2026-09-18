@@ -340,6 +340,13 @@
           "when": "false"
         }
       ],
+      "scm/title": [
+        {
+          "command": "apus.pushNow",
+          "when": "scmProvider == git",
+          "group": "navigation@9"
+        }
+      ],
       "view/title": [
         {
           "command": "apus.addFolder",
@@ -445,6 +452,13 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "apus.pushNow",
+        "key": "shift+alt+p",
+        "mac": "cmd+alt+p"
+      }
+    ],
     "configuration": {
       "title": "Apus",
       "properties": {
@@ -479,7 +493,7 @@
         },
         "apus.messageTemplate": {
           "type": "string",
-          "default": "chore: auto-commit {date}",
+          "default": "chore: update {files}",
           "scope": "resource",
           "markdownDescription": "%config.messageTemplate%"
         },

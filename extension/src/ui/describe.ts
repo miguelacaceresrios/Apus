@@ -40,6 +40,9 @@ export function look(c: RepoController): Look {
   if (c.held) {
     return { icon: 'shield', color: 'problemsWarningIcon.foreground', state: heldState(c.held) };
   }
+  if (c.offline) {
+    return { icon: 'cloud', color: undefined, state: vscode.l10n.t('no connection') };
+  }
   if (c.lastError) {
     return { icon: 'warning', color: 'problemsWarningIcon.foreground', state: vscode.l10n.t('last push failed') };
   }
@@ -57,14 +60,15 @@ export function look(c: RepoController): Look {
   return { icon: LOGO, color: 'charts.orange', state: vscode.l10n.t('watching') };
 }
 
-/** Si el estado pide que hagas algo: se pinta de advertencia. */
+/** Si el estado pide que hagas algo: se pinta de advertencia. Sin conexión no: se reintenta solo. */
 export function needsAttention(c: RepoController): boolean {
-  return c.missing || c.held !== undefined || c.lastError !== undefined || (c.watching && c.blocked === 'noRemote');
+  return c.missing || c.held !== undefined || (c.lastError !== undefined && !c.offline) || (c.watching && c.blocked === 'noRemote');
 }
 
-/** "en 1:40": lo que falta para el próximo auto-commit, si hay uno en espera. */
+/** "en 1:40": lo que falta para el próximo auto-commit o, sin conexión, para el próximo intento. */
 export function countdown(c: RepoController, now = Date.now()): string | undefined {
-  return c.nextFlightAt !== undefined && !c.flying ? vscode.l10n.t('in {0}', formatCountdown(c.nextFlightAt - now)) : undefined;
+  const at = c.nextFlightAt ?? c.retryAt;
+  return at !== undefined && !c.flying ? vscode.l10n.t('in {0}', formatCountdown(at - now)) : undefined;
 }
 
 /** Una línea corta para la vista: "vigilando · 3 cambios · en 1:40". */
@@ -138,11 +142,14 @@ export function tooltip(c: RepoController): vscode.MarkdownString {
   if (c.nextFlightAt !== undefined && !c.flying) {
     line('watch', vscode.l10n.t('next auto-commit: {0}', when(c.nextFlightAt)));
   }
+  if (c.retryAt !== undefined && !c.flying) {
+    line('sync', vscode.l10n.t('trying to push again: {0}', when(c.retryAt)));
+  }
   line('cloud-upload', vscode.l10n.t('last push: {0}', c.lastPushAt === undefined ? vscode.l10n.t('unknown') : when(c.lastPushAt)));
   line('history', vscode.l10n.t('last auto-commit: {0}', c.lastAutoAt === undefined ? vscode.l10n.t('none yet') : when(c.lastAutoAt)));
   if (c.lastError) {
     const { flight } = c.lastError;
-    line('warning', flight.detail ? `${flightSummary(flight)} — ${flight.detail}` : flightSummary(flight));
+    line(c.offline ? 'cloud' : 'warning', flight.detail ? `${flightSummary(flight)} — ${flight.detail}` : flightSummary(flight));
   }
 
   links(
@@ -152,7 +159,7 @@ export function tooltip(c: RepoController): vscode.MarkdownString {
       : link('plug', vscode.l10n.t('Connect URL…'), 'apus.changeUrl'),
     c.held
       ? link('shield', vscode.l10n.t('Review…'), 'apus.reviewHeld')
-      : c.lastError
+      : c.lastError && !c.offline
         ? link('tools', vscode.l10n.t('Fix…'), 'apus.fixLast')
         : link('history', vscode.l10n.t('Auto-commits'), 'apus.showLog'),
   );

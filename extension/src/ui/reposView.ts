@@ -8,7 +8,7 @@ import type { RepoController } from '../repos/repoController';
 import type { LostFolder } from '../repos/types';
 import { look, needsAttention, summary, tooltip } from './describe';
 import { heldSummary, location, ruleText } from './safety';
-import { binaryProblem, flightSummary, locale, lostReason, reposWithChanges, tildify, unpushed, when } from './text';
+import { binaryProblem, clock, flightSummary, locale, lostReason, reposWithChanges, tildify, unpushed, when } from './text';
 
 type Field = 'held' | 'error' | 'nested' | 'gone' | 'folder' | 'url' | 'branch' | 'history';
 
@@ -157,7 +157,7 @@ export class ReposView implements vscode.TreeDataProvider<Node>, vscode.Disposab
     this.view.badge = withChanges > 0 ? { value: withChanges, tooltip: reposWithChanges(withChanges) } : undefined;
 
     // Las cuentas regresivas corren solo mientras la vista está a la vista.
-    if (this.view.visible && all.some((c) => c.nextFlightAt !== undefined && !c.flying)) {
+    if (this.view.visible && all.some((c) => (c.nextFlightAt ?? c.retryAt) !== undefined && !c.flying)) {
       this.timer = setTimeout(() => this.refresh(), 1000 - (Date.now() % 1000) + 10);
     }
   }
@@ -203,6 +203,19 @@ function detailItem(c: RepoController, field: Field): vscode.TreeItem {
 
     case 'error': {
       const flight = c.lastError!.flight;
+      if (c.offline) {
+        item.label = vscode.l10n.t('No connection');
+        item.description = c.retryAt !== undefined ? vscode.l10n.t('trying again at {0}', clock(c.retryAt)) : flightSummary(flight);
+        item.iconPath = new vscode.ThemeIcon('cloud');
+        item.tooltip = [
+          flightSummary(flight),
+          c.retryAt !== undefined
+            ? vscode.l10n.t('The commits stay here, and apus pushes them when it can reach the remote. Click to try now.')
+            : vscode.l10n.t('The commits stay here. Click to try again.'),
+        ].join('\n');
+        item.command = command('apus.pushNow', vscode.l10n.t('Push Now'));
+        break;
+      }
       item.label = vscode.l10n.t('Last push failed');
       item.description = flightSummary(flight);
       item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));

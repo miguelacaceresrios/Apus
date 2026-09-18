@@ -22,10 +22,18 @@ export class Notifier {
     const summary = flightSummary(flight);
 
     if (!flight.ok) {
+      const trouble = diagnose(flight);
+      // Sin conexión no hay nada que arreglar: lo automático se reintenta en
+      // silencio, y la vista lo muestra. Solo se avisa si lo pidió el usuario.
+      if (trouble === 'offline') {
+        if (!auto) {
+          this.offline(repo, flight.committed);
+        }
+        return;
+      }
       if (auto && (level === 'off' || repeatedError)) {
         return;
       }
-      const trouble = diagnose(flight);
       const fix = fixLabel(trouble);
       const showLog = vscode.l10n.t('Show Log');
       const actions = fix ? [fix, showLog] : [showLog];
@@ -68,6 +76,20 @@ export class Notifier {
         void vscode.window.showInformationMessage(
           vscode.l10n.t('apus: from now on you will only be notified when something fails. You can change this in Rules.'),
         );
+      }
+    });
+  }
+
+  /** Subir a mano no llegó al remoto. */
+  private offline(repo: RepoController, committed: boolean): void {
+    const text = repo.watching
+      ? vscode.l10n.t('apus · {0}: no connection to the remote. apus will try again on its own.', repo.name)
+      : vscode.l10n.t('apus · {0}: no connection to the remote. Push again when you are back online.', repo.name);
+    const saved = committed ? ` ${vscode.l10n.t('The commit is saved here.')}` : '';
+    const showLog = vscode.l10n.t('Show Log');
+    void vscode.window.showInformationMessage(text + saved, showLog).then((answer) => {
+      if (answer === showLog) {
+        this.log.show(true);
       }
     });
   }

@@ -34,6 +34,7 @@
   | apus + spinning arrows | Pushing. |
   | apus + shield, on a yellow background | Held back: something that should not be pushed is about to go up. |
   | apus + unplugged cable | No URL to push to yet. |
+  | apus + cloud + `in 4:10` | No connection: the commits stay here, and apus tries again in 4:10. |
   | apus + warning, on a yellow background | Something needs your attention. |
 
   Hover for details and quick actions (pause, push now, auto-commits). Click to open the menu.
@@ -42,6 +43,8 @@
 - **Apus view.** Adds its own icon to the activity bar. Each repository opens into a card: its folder, the URL it pushes to, its branch and its auto-commits, with a live countdown and inline actions. Click the folder or the URL to change it. The badge counts repositories with something unpushed.
 - **Folder and URL.** *Add Folder…* looks at the folder before adding it: a plain folder can be initialized, a subfolder offers the root of its repository, and a folder with repositories inside asks which one you meant. *Connect or Change URL…* validates the URL and asks before changing it.
 - **Errors you can fix.** No URL, repository not found, remote ahead: the notification and the view offer the fix, not just the message. If a repository's folder disappears, it stays on the list as *folder not found*, to locate it or forget it.
+- **Offline is not an error.** When the remote can't be reached, the commit stays on your machine and apus tries again on its own: after 1, 2 and 5 minutes, then every 10. No warning, no notification; the view shows when the next try is.
+- **Commit messages that say what changed.** Auto-commits are named after their files, `chore: update app.ts, README.md +2`, and list every file in the body.
 - **Notifications.** Choose every auto-commit, errors only, or nothing. A repeated error is not reported twice.
 - **Early warning.** If apus is missing, the status bar and the view tell you right away and offer to download or locate it. You don't find out on your first push.
 - **Get started guide.** A walkthrough on the Welcome page takes you from installing apus to your first watched repository.
@@ -50,7 +53,7 @@
 
 ## Requirements
 
-- [apus](https://github.com/miguelacaceresrios/Apus) 2.1 or later, on your `PATH` or set in `apus.path`.
+- [apus](https://github.com/miguelacaceresrios/Apus) 2.1 or later, on your `PATH` or set in `apus.path`. With 2.2 or later the extension reads apus's JSON output instead of its messages.
 - VS Code's built-in Git extension.
 
 If the extension can't find apus, it offers to download it or pick the binary. On Windows it must be `apus.exe`: `apusw.exe` is the windowed build and reports errors in dialog boxes.
@@ -62,7 +65,7 @@ The extension does not reimplement git:
 1. **Detects changes** through VS Code's built-in Git extension, so anything in `.gitignore` doesn't count.
 2. **Waits** until the repository has been quiet for `apus.watchInterval` seconds. Every save restarts the wait.
 3. **Checks** what the push would send: the new lines since the last commit, files git doesn't track yet, and commits that are on no remote. If something shouldn't go up, it stops here.
-4. **Pushes** by running `apus --message "…"`. The binary is spawned without a shell, with stdin closed and `GIT_TERMINAL_PROMPT=0`, so it can never hang waiting for a password.
+4. **Pushes** by running `apus --json --message "…"` (without `--json` for apus 2.1). The binary is spawned without a shell, with stdin closed and `GIT_TERMINAL_PROMPT=0`, so it can never hang waiting for a password.
 5. **Marks** each commit with the trailer `Apus-Auto: true`, so auto-commits can be recognized from the extension, the terminal or any other tool:
 
    ```bash
@@ -79,7 +82,7 @@ The time of the last push comes from the remote-tracking branch's reflog. The ex
 | `apus.watchInterval` | `120` | Seconds without new changes before auto-committing. |
 | `apus.minInterval` | `300` | Minimum seconds between two auto-commits of the same repository. |
 | `apus.ignorePatterns` | `[]` | Globs whose changes don't trigger an auto-commit, like `*.log` or `docs/**`. |
-| `apus.messageTemplate` | `chore: auto-commit {date}` | Auto-commit message. |
+| `apus.messageTemplate` | `chore: update {files}` | Auto-commit subject. `{files}`: up to three changed file names; `{date}`: date and time. The body lists every file. |
 | `apus.checkBeforePush` | `true` | Check what is about to be pushed. User settings only. |
 | `apus.maxFileSize` | `50` | Largest file, in MB, that can be pushed (GitHub rejects files over 100 MB). User settings only. |
 | `apus.notifications` | `all` | What to notify: `all`, `errors` or `off`. |
@@ -104,7 +107,7 @@ All of them are in the Command Palette under **Apus**, and most are one click aw
 | Change Folder… | Points a repository of the list to another folder, and keeps it watched if it was. |
 | Connect or Change URL… | Sets the URL a repository pushes to. |
 | Watch or Pause a Repository | Turns auto-commit on or off, one repository at a time. |
-| Push Now | add + commit + push right away, with the same check. |
+| Push Now | add + commit + push right away, with the same check. Also in the title bar of Source Control, and on <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> (<kbd>⌘</kbd>+<kbd>⌥</kbd>+<kbd>P</kbd> on macOS). |
 | Review Held Files… | What stopped the last push, with a button to fix each one. |
 | Review Files Let Through… | Findings you marked as not secret, to check them again. |
 | Auto-commits | The latest auto-commits; pick one to open it on GitHub. |

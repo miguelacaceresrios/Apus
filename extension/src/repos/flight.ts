@@ -3,7 +3,7 @@
 
 import * as path from 'node:path';
 import { autoMessage, flyApus, type Flight } from '../core/apus';
-import { absoluteGitDir, lastAutoCommitAt } from '../core/git';
+import { absoluteGitDir, changedFiles, lastAutoCommitAt } from '../core/git';
 import { withLock } from '../core/lock';
 import type { FlightKind } from './types';
 
@@ -19,6 +19,7 @@ export interface LaunchOptions {
   root: string;
   binary: string;
   kind: FlightKind;
+  /** Mínimo entre dos auto-commits. 0 al reintentar un push que falló sin conexión. */
   minGapMs: number;
   messageTemplate: string;
 }
@@ -27,13 +28,14 @@ export async function launch(options: LaunchOptions): Promise<LaunchResult> {
   const { git, root, binary, kind } = options;
   const gitDir = await absoluteGitDir(git, root);
   const result = await withLock(path.join(gitDir, 'apus.lock'), async (): Promise<LaunchResult> => {
-    if (kind === 'auto') {
+    if (kind === 'auto' && options.minGapMs > 0) {
       const last = await lastAutoCommitAt(git, root);
       if (last !== undefined && Date.now() - last < options.minGapMs) {
         return { kind: 'tooSoon', secondsAgo: Math.round((Date.now() - last) / 1000) };
       }
     }
-    const message = kind === 'auto' ? autoMessage(options.messageTemplate, new Date()) : undefined;
+    // Los archivos se leen con el candado tomado: son los que va a commitear apus.
+    const message = kind === 'auto' ? autoMessage(options.messageTemplate, new Date(), await changedFiles(git, root)) : undefined;
     return { kind: 'flown', flight: await flyApus(binary, root, { message, background: kind === 'auto' }) };
   });
   return result.acquired ? result.value : { kind: 'busy', pid: result.holder?.pid };

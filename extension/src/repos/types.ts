@@ -1,6 +1,6 @@
 import type * as vscode from 'vscode';
 import type { SafetyConfig } from '../config';
-import type { Flight } from '../core/apus';
+import type { Flight, Trouble } from '../core/apus';
 import type { Finding } from '../core/safety';
 import type { AllowList, WatchStore } from '../core/stores';
 import type { RepoController } from './repoController';
@@ -48,6 +48,8 @@ export interface RemoteInfo {
 
 export interface LastError {
   flight: Flight;
+  /** Qué fue, si se reconoce. */
+  trouble: Trouble | undefined;
   at: number;
   /** A dónde subía cuando falló: si cambia, el error deja de importar. */
   remoteUrl: string | undefined;

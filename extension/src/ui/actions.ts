@@ -84,6 +84,9 @@ export async function fixLast(repo: RepoController, log: vscode.LogOutputChannel
     case 'behind':
       openTerminal(repo, 'git pull --rebase');
       return;
+    case 'offline':
+      await pushNow(repo);
+      return;
     default:
       log.show(true);
   }

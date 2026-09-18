@@ -4,8 +4,12 @@ Notable changes to Apus affinis. The format is based on [Keep a Changelog](https
 
 ## Unreleased
 
+- **Offline is not an error.** When the remote can't be reached, the repository shows a cloud instead of a warning, the commit stays on your machine, and apus tries again on its own after 1, 2 and 5 minutes, then every 10, while the repository is watched. Auto-commits say nothing; a push by hand says the commit is saved.
+- **Auto-commit messages name their files.** The default `apus.messageTemplate` is now `chore: update {files}`, like `chore: update app.ts, README.md +2`, and the body lists every file with its status. `{date}` still works; a custom template is kept as it is.
+- **Push Now in Source Control**, in the title bar of each git repository, and on <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> (<kbd>⌘</kbd>+<kbd>⌥</kbd>+<kbd>P</kbd> on macOS).
+- With apus 2.2 or later, the extension reads its `--json` output instead of its messages: errors are recognized by the reason apus gives, not by matching Spanish text. apus 2.1 still works as before.
 - **Download apus** now downloads the binary for your system from apus's latest release (Windows, Linux or macOS, x64 or ARM), and then offers to choose it. No Go needed.
-- Development: ESLint with type-aware rules and Prettier; coverage of the core in CI (at least 90% of lines); integration tests inside VS Code on Linux and Windows in CI; the repository controller split into smaller modules.
+- Development: ESLint with type-aware rules and Prettier; coverage of the core in CI (at least 90% of lines); integration tests inside VS Code on Linux, Windows and macOS in CI; the repository controller split into smaller modules; GitHub Actions pinned by commit and kept up to date by Dependabot; a contributing guide and issue forms.
 
 ## 0.4.0 - 2026-09-17
 

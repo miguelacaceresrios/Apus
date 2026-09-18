@@ -1,12 +1,18 @@
 // Cómo se le habla a apus y cómo se lee lo que contesta. La extensión no
 // reimplementa add + commit + push: se lo pide al binario, que es el que sabe.
 
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
+import type { ChangedFile } from './git';
 import { runProcess } from './process';
 import { redactCredentials } from './remote';
 import { formatStamp } from './time';
 
 /** Trailer que marca un commit como automático. Así se reconocen desde cualquier herramienta. */
 export const AUTO_TRAILER = 'Apus-Auto: true';
+
+/** Plantilla del mensaje de un auto-commit, si apus.messageTemplate no dice otra cosa. */
+export const DEFAULT_TEMPLATE = 'chore: update {files}';
 
 /** Códigos de salida de apus. */
 export const ExitCode = {
@@ -29,6 +35,11 @@ export interface Flight {
   detail: string | undefined;
   committed: boolean;
   pushed: boolean;
+  /**
+   * Por qué falló, en una palabra ("offline", "auth"…). Solo lo da apus 2.2.0
+   * o posterior, con --json; con uno anterior se deduce del texto.
+   */
+  reason?: string;
   /** Salida completa, para el registro. */
   output: string;
 }
@@ -37,9 +48,33 @@ const FLIGHT_TIMEOUT_MS = 5 * 60_000;
 // eslint-disable-next-line no-control-regex -- los colores de la terminal empiezan con ESC, a propósito.
 const ANSI = /\x1b\[[0-9;]*m/g;
 
-export function autoMessage(template: string, date: Date): string {
-  const subject = (template.trim() || 'chore: auto-commit {date}').replaceAll('{date}', formatStamp(date));
-  return `${subject}\n\n${AUTO_TRAILER}`;
+/** Hasta cuántos archivos se listan en el cuerpo del mensaje. */
+const FILES_IN_BODY = 20;
+/** Hasta cuántos nombres entran en el asunto, con {files}. */
+const FILES_IN_SUBJECT = 3;
+
+/**
+ * El mensaje de un auto-commit: el asunto de la plantilla ({date}, {files}), la
+ * lista de archivos y el trailer, cada uno en su párrafo.
+ */
+export function autoMessage(template: string, date: Date, files: readonly ChangedFile[] = []): string {
+  const stamp = formatStamp(date);
+  const subject = (template.trim() || DEFAULT_TEMPLATE)
+    .replaceAll('{date}', stamp)
+    // Sin la lista (git no pudo darla), la fecha: el asunto nunca queda cortado.
+    .replaceAll('{files}', files.length > 0 ? fileNames(files) : stamp);
+  const body = files.slice(0, FILES_IN_BODY).map((f) => `${f.status} ${f.path}`);
+  if (files.length > FILES_IN_BODY) {
+    body.push(`… ${files.length - FILES_IN_BODY} more`);
+  }
+  return [subject, body.join('\n'), AUTO_TRAILER].filter(Boolean).join('\n\n');
+}
+
+/** "a.ts, b.ts, README.md +2": los nombres, sin carpetas, sin repetir. */
+function fileNames(files: readonly ChangedFile[]): string {
+  const names = [...new Set(files.map((f) => path.posix.basename(f.path.replace(/\/$/, ''))))];
+  const shown = names.slice(0, FILES_IN_SUBJECT).join(', ');
+  return names.length > FILES_IN_SUBJECT ? `${shown} +${names.length - FILES_IN_SUBJECT}` : shown;
 }
 
 export interface FlightOptions {
@@ -51,13 +86,14 @@ export interface FlightOptions {
 
 /** Corre apus en `cwd`. */
 export async function flyApus(binary: string, cwd: string, options: FlightOptions): Promise<Flight> {
-  const args = options.message === undefined ? [] : ['--message', options.message];
+  const json = await speaksJson(binary);
+  const args = [...(json ? ['--json'] : []), ...(options.message === undefined ? [] : ['--message', options.message])];
   const result = await runProcess(binary, args, {
     cwd,
     timeoutMs: FLIGHT_TIMEOUT_MS,
     env: flightEnv(process.env, options.background),
   });
-  return parseFlight(result.code, result.stderr, result.stdout);
+  return (json && parseJsonFlight(result.code, result.stdout, result.stderr)) || parseFlight(result.code, result.stderr, result.stdout);
 }
 
 /**
@@ -72,6 +108,73 @@ export function flightEnv(base: NodeJS.ProcessEnv, background: boolean): NodeJS.
     env.SSH_ASKPASS_REQUIRE = 'never';
   }
   return env;
+}
+
+/** Si el apus que dice `apus --version` entiende --json: desde la 2.2.0. */
+export function versionSpeaksJson(versionOutput: string): boolean {
+  const m = /\bapus (\d+)\.(\d+)\.(\d+)/.exec(versionOutput);
+  if (!m) {
+    return false;
+  }
+  const [major, minor] = [Number(m[1]), Number(m[2])];
+  return major > 2 || (major === 2 && minor >= 2);
+}
+
+/** Por binario y por versión del archivo: si lo actualizás en el mismo lugar, se vuelve a preguntar. */
+const jsonSupport = new Map<string, Promise<boolean>>();
+
+async function speaksJson(binary: string): Promise<boolean> {
+  const stat = await fs.stat(binary).catch(() => undefined);
+  const key = `${binary}\0${stat?.mtimeMs ?? 0}\0${stat?.size ?? 0}`;
+  let known = jsonSupport.get(key);
+  if (!known) {
+    known = runProcess(binary, ['--version'], { cwd: path.dirname(binary), timeoutMs: 10_000 }).then(
+      (r) => r.code === 0 && versionSpeaksJson(r.stdout),
+      () => false,
+    );
+    jsonSupport.set(key, known);
+  }
+  return known;
+}
+
+/**
+ * Lo que dice `apus --json`: una línea en stdout con el desenlace. Undefined si
+ * no está o no se entiende: entonces se lee el texto, como con un apus viejo.
+ */
+export function parseJsonFlight(code: number, stdout: string, stderr: string): Flight | undefined {
+  const line = stdout
+    .split(/\r?\n/)
+    .reverse()
+    .find((l) => l.trim().startsWith('{'));
+  if (!line) {
+    return undefined;
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  if (typeof data !== 'object' || data === null) {
+    return undefined;
+  }
+  const d = data as Record<string, unknown>;
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? redactCredentials(v.trim()) : undefined);
+  if (typeof d.ok !== 'boolean') {
+    return undefined;
+  }
+  // El código es el del proceso: si apus se pasó del tiempo, -1 aunque el JSON diga otra cosa.
+  const ok = d.ok && code === ExitCode.ok;
+  return {
+    code,
+    ok,
+    summary: text(d.summary),
+    detail: ok ? text(d.url) : text(d.hint),
+    committed: d.committed === true,
+    pushed: d.pushed === true,
+    reason: ok ? undefined : text(d.reason),
+    output: redactCredentials(stderr.replace(ANSI, '')).trimEnd(),
+  };
 }
 
 export function parseFlight(code: number, stderr: string, stdout = ''): Flight {
@@ -122,15 +225,37 @@ export type Trouble =
   /** git no pudo iniciar sesión. */
   | 'auth'
   /** El remoto tiene commits que este repo no tiene. */
-  | 'behind';
+  | 'behind'
+  /** No se pudo llegar al remoto: sin internet, o el servidor no contesta. Se reintenta solo. */
+  | 'offline';
+
+/** Los motivos de `apus --json` que tienen arreglo. */
+const REASONS: Record<string, Trouble> = {
+  noRemote: 'noRemote',
+  notFound: 'remoteNotFound',
+  auth: 'auth',
+  behind: 'behind',
+  offline: 'offline',
+};
 
 export function diagnose(flight: Flight): Trouble | undefined {
   if (flight.ok) {
     return undefined;
   }
+  if (flight.reason !== undefined) {
+    return REASONS[flight.reason];
+  }
   const text = [flight.summary, flight.detail, flight.output].join('\n');
   if (/no tiene remoto|git remote add origin|no configured push destination|No remote repository specified/i.test(text)) {
     return 'noRemote';
+  }
+  // Primero la conexión: sin red, SSH también dice "Could not read from remote repository".
+  if (
+    /Could not resolve (host|hostname|proxy)|Temporary failure in name resolution|No such host is known|Name or service not known|Failed to connect to|Couldn't connect to server|Connection (timed out|refused|reset)|Operation timed out|Network is unreachable/i.test(
+      text,
+    )
+  ) {
+    return 'offline';
   }
   // Antes que "no encontrado": con SSH, un problema de clave también dice
   // "Could not read from remote repository".

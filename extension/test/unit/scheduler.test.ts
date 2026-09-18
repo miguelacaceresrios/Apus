@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { FlightScheduler, type Clock } from '../../src/core/scheduler';
+import { FlightScheduler, retryDelayMs, type Clock } from '../../src/core/scheduler';
 
 /** Reloj falso: el tiempo avanza solo cuando el test lo pide. */
 class FakeClock implements Clock {
@@ -140,4 +140,12 @@ test('dispose frena todo', async () => {
   scheduler.poke();
   await clock.advance(10_000);
   assert.deepEqual(flights, []);
+});
+
+test('retryDelayMs: 1, 2 y 5 minutos, y después cada 10', () => {
+  assert.deepEqual(
+    [0, 1, 2, 3, 4, 50].map((attempt) => retryDelayMs(attempt) / 60_000),
+    [1, 2, 5, 10, 10, 10],
+  );
+  assert.equal(retryDelayMs(-1), 60_000);
 });

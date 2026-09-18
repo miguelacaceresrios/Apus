@@ -217,5 +217,16 @@
   "apus · {0}: already pushing.": "apus · {0}: ya está subiendo.",
   "apus · {0}: another window is pushing this repo.": "apus · {0}: otra ventana está subiendo este repo.",
   "apus: there are no repositories on the list yet.": "apus: todavía no hay repos en la lista.",
-  "apus · choose a repository": "apus · elegí un repo"
+  "apus · choose a repository": "apus · elegí un repo",
+  "no connection to the remote": "sin conexión con el remoto",
+  "No connection": "Sin conexión",
+  "trying again at {0}": "vuelve a intentar a las {0}",
+  "The commits stay here, and apus pushes them when it can reach the remote. Click to try now.": "Los commits quedan acá, y apus los sube cuando puede llegar al remoto. Clic para intentar ahora.",
+  "The commits stay here. Click to try again.": "Los commits quedan acá. Clic para volver a intentar.",
+  "apus · {0}: no connection to the remote. apus will try again on its own.": "apus · {0}: sin conexión con el remoto. apus vuelve a intentar solo.",
+  "apus · {0}: no connection to the remote. Push again when you are back online.": "apus · {0}: sin conexión con el remoto. Subí de nuevo cuando vuelva la conexión.",
+  "The commit is saved here.": "El commit quedó guardado acá.",
+  "no connection": "sin conexión",
+  "trying to push again: {0}": "próximo intento de subir: {0}",
+  "apus: {0} is not on the list.": "apus: {0} no está en la lista."
 }

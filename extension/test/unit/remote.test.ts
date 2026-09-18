@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { diagnose, flightEnv, parseFlight } from '../../src/core/apus';
+import { diagnose, flightEnv, parseFlight, parseJsonFlight } from '../../src/core/apus';
 import { browseUrl, parseRemotes } from '../../src/core/git';
 import { checkRemoteUrl, chooseRemote, redactCredentials, shortUrl } from '../../src/core/remote';
 
@@ -145,6 +145,30 @@ test('diagnose: autenticación, antes que "no encontrado"', () => {
 test('diagnose: el remoto tiene commits nuevos', () => {
   const f = parseFlight(3, ' ! [rejected]        main -> main (fetch first)\n✖ el push falló: main → origin/main\n');
   assert.equal(diagnose(f), 'behind');
+});
+
+test('diagnose: sin conexión, aunque SSH diga "Could not read from remote repository"', () => {
+  const salidas = [
+    "fatal: unable to access 'https://github.com/u/r.git/': Could not resolve host: github.com",
+    "fatal: unable to access 'https://github.com/u/r.git/': Failed to connect to github.com port 443 after 21045 ms: Couldn't connect to server",
+    'ssh: Could not resolve hostname github.com: No such host is known.\r\nfatal: Could not read from remote repository.',
+    'ssh: connect to host github.com port 22: Network is unreachable\nfatal: Could not read from remote repository.',
+  ];
+  for (const salida of salidas) {
+    assert.equal(diagnose(parseFlight(3, `${salida}\n✖ el push falló: main → origin/main`)), 'offline', salida);
+  }
+});
+
+test('diagnose: con apus --json manda el motivo que da apus, no el texto', () => {
+  const json = (reason: string) =>
+    parseJsonFlight(3, JSON.stringify({ ok: false, code: 3, reason, summary: 'el push falló', committed: true }), 'Permission denied')!;
+  assert.equal(diagnose(json('offline')), 'offline');
+  assert.equal(diagnose(json('notFound')), 'remoteNotFound');
+  assert.equal(diagnose(json('noRemote')), 'noRemote');
+  assert.equal(diagnose(json('behind')), 'behind');
+  assert.equal(diagnose(json('auth')), 'auth');
+  // Un motivo sin arreglo propio no se adivina por el texto.
+  assert.equal(diagnose(json('commit')), undefined);
 });
 
 test('diagnose: lo que no se reconoce, y lo que salió bien', () => {

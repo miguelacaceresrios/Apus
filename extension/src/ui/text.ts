@@ -110,6 +110,8 @@ export function troubleText(trouble: Trouble | undefined, repo: RepoController, 
   switch (trouble) {
     case 'noRemote':
       return vscode.l10n.t('there is no URL to push to yet');
+    case 'offline':
+      return vscode.l10n.t('no connection to the remote');
     case 'remoteNotFound':
       return repo.remote
         ? vscode.l10n.t('{0} was not found. Was the repository deleted or renamed?', shortUrl(repo.remote.url))

@@ -1,14 +1,14 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { readRepoConfig, type RepoConfig } from '../config';
-import type { Flight } from '../core/apus';
+import { diagnose, type Flight } from '../core/apus';
 import { autoCommits, browseUrl, lastAutoCommitAt, lastPushAt, readRemotes, rootCommits, setRemoteUrl, type AutoCommit } from '../core/git';
 import { compileGlobs } from '../core/glob';
 import { HeldBack } from '../core/held';
 import { MissingFolderError } from '../core/process';
 import { chooseRemote, redactCredentials, shortUrl } from '../core/remote';
 import { addToGitignore, checkPending, stopTracking, type Finding } from '../core/safety';
-import { FlightScheduler } from '../core/scheduler';
+import { FlightScheduler, retryDelayMs } from '../core/scheduler';
 import { allowKey, belongsTo, repoKey } from '../core/stores';
 import type { Repository } from '../git/api';
 import { launch } from './flight';
@@ -43,6 +43,9 @@ export class RepoController implements vscode.Disposable {
   private _lastPushAt: number | undefined;
   private _lastAutoAt: number | undefined;
   private _lastError: LastError | undefined;
+  /** Sin conexión: el próximo intento de subir, y cuántos van. */
+  private retry: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
+  private offlineAttempts = 0;
 
   /** La última foto del estado de vscode.git. */
   private state = EMPTY;
@@ -144,6 +147,14 @@ export class RepoController implements vscode.Disposable {
   get lastError(): LastError | undefined {
     return this._lastError;
   }
+  /** El último push falló porque no se pudo llegar al remoto. No es algo para arreglar: se reintenta solo. */
+  get offline(): boolean {
+    return this._lastError?.trouble === 'offline';
+  }
+  /** Cuándo se vuelve a intentar subir, si está sin conexión y vigilando. */
+  get retryAt(): number | undefined {
+    return this.retry?.at;
+  }
   /** Lo que frenó la última subida: posibles secretos o archivos muy grandes. */
   get held(): readonly Finding[] | undefined {
     return this.heldBack.findings;
@@ -157,7 +168,7 @@ export class RepoController implements vscode.Disposable {
     this._watching = on;
     // Pausar o volver a vigilar es darse por enterado de un error viejo. Lo
     // frenado se vuelve a revisar en el próximo vuelo.
-    this._lastError = undefined;
+    this.clearError();
     this.heldBack.clear();
     const id = this.roots?.[0];
     await this.services.watchStore.set(this.key, id ? { on, id } : { on });
@@ -202,7 +213,7 @@ export class RepoController implements vscode.Disposable {
       remoteNames: [...new Set([...this.state.remoteNames, name])],
       blocked: this.state.blocked === 'noRemote' ? undefined : this.state.blocked,
     };
-    this._lastError = undefined;
+    this.clearError();
     this.emitter.fire();
     await this.repo.status?.().catch(() => undefined);
   }
@@ -321,7 +332,7 @@ export class RepoController implements vscode.Disposable {
     const remoteSignature = `${next.remote?.name} ${next.remote?.url}`;
     if (this._lastError && !this._flying) {
       if (next.upToDate && this.upToDate === false) {
-        this._lastError = undefined;
+        this.clearError();
       } else if (this.remoteSignature !== undefined && remoteSignature !== this.remoteSignature) {
         void this.dropErrorIfRemoteChanged();
       }
@@ -344,6 +355,7 @@ export class RepoController implements vscode.Disposable {
 
   dispose(): void {
     this.disposed = true;
+    this.cancelRetry();
     this.scheduler.dispose();
     for (const d of this.disposables) {
       d.dispose();
@@ -358,19 +370,56 @@ export class RepoController implements vscode.Disposable {
     const error = this._lastError;
     const url = (await this.readRemote())?.url;
     if (error && this._lastError === error && url !== error.remoteUrl) {
-      this._lastError = undefined;
+      this.clearError();
       this.emitter.fire();
     }
   }
 
+  /** El error dejó de importar: se sube bien, se pausó o cambió a dónde sube. */
+  private clearError(): void {
+    this._lastError = undefined;
+    this.offlineAttempts = 0;
+    this.cancelRetry();
+  }
+
+  /**
+   * Sin conexión, el commit quedó hecho pero no subió. Se vuelve a intentar
+   * solo, cada vez más espaciado, mientras siga vigilando.
+   */
+  private scheduleRetry(): void {
+    this.cancelRetry();
+    if (!this._watching || this.disposed || this._missing) {
+      return;
+    }
+    const delay = retryDelayMs(this.offlineAttempts++);
+    const timer = setTimeout(() => {
+      this.retry = undefined;
+      // Si ya viene un auto-commit, ese sube todo: se espera un poco más.
+      if (this.scheduler.dueAt !== undefined) {
+        this.scheduleRetry();
+      } else if (this.offline) {
+        void this.fly('auto', true);
+      }
+      this.emitter.fire();
+    }, delay);
+    this.retry = { at: Date.now() + delay, timer };
+  }
+
+  private cancelRetry(): void {
+    if (this.retry) {
+      clearTimeout(this.retry.timer);
+      this.retry = undefined;
+    }
+  }
+
   private canAutoFly(): boolean {
+    return this.canRetry() && this.state.relevant > 0;
+  }
+
+  /** Lo mismo que un auto-commit, sin necesitar cambios nuevos: hay commits por subir. */
+  private canRetry(): boolean {
     return (
-      this._watching &&
-      this.roots !== undefined &&
-      !this._missing &&
-      !this.state.blocked &&
-      !this.heldBack.blocks(this.changeSignature) &&
-      this.state.relevant > 0
+      this._watching && this.roots !== undefined && !this._missing && !this.state.blocked && !this.heldBack.blocks(this.changeSignature)
     );
   }
 
@@ -419,7 +468,8 @@ export class RepoController implements vscode.Disposable {
     this.sync();
   }
 
-  private async fly(kind: FlightKind): Promise<void> {
+  /** `retry`: un reintento después de fallar sin conexión. Sube lo pendiente aunque no haya cambios nuevos. */
+  private async fly(kind: FlightKind, retry = false): Promise<void> {
     const { log } = this.services;
     if (this._flying) {
       if (kind === 'manual') {
@@ -430,7 +480,7 @@ export class RepoController implements vscode.Disposable {
     if (kind === 'auto') {
       // Pudieron pausarlo desde otra ventana.
       this._watching = this.services.watchStore.get(this.key)?.on ?? this._config.autoStart;
-      if (!this.canAutoFly()) {
+      if (!(retry ? this.canRetry() : this.canAutoFly())) {
         this.emitter.fire();
         return;
       }
@@ -448,13 +498,13 @@ export class RepoController implements vscode.Disposable {
       if (!(await this.clearedForTakeoff(kind))) {
         return;
       }
-      log.info(`[${this.name}] ${kind === 'auto' ? 'auto-commit' : 'manual push'} with ${binary}`);
+      log.info(`[${this.name}] ${retry ? 'retrying the push' : kind === 'auto' ? 'auto-commit' : 'manual push'} with ${binary}`);
       const result = await launch({
         git: this.services.gitPath,
         root: this.root.fsPath,
         binary,
         kind,
-        minGapMs: this._config.minGapMs,
+        minGapMs: retry ? 0 : this._config.minGapMs,
         messageTemplate: this._config.messageTemplate,
       });
       switch (result.kind) {
@@ -462,6 +512,8 @@ export class RepoController implements vscode.Disposable {
           log.info(`[${this.name}] another process is pushing this repo${result.pid ? ` (pid ${result.pid})` : ''}`);
           if (kind === 'manual') {
             void vscode.window.showInformationMessage(vscode.l10n.t('apus · {0}: another window is pushing this repo.', this.name));
+          } else if (retry) {
+            this.scheduleRetry();
           }
           break;
         case 'tooSoon':
@@ -521,11 +573,21 @@ export class RepoController implements vscode.Disposable {
     }
     let repeated = false;
     if (flight.ok) {
-      this._lastError = undefined;
+      this.clearError();
     } else {
+      const trouble = diagnose(flight);
       repeated = this._lastError?.flight.summary === flight.summary && this._lastError?.flight.code === flight.code;
-      this._lastError = { flight, at: Date.now(), remoteUrl };
-      log.warn(`[${this.name}] apus exited with code ${flight.code}`);
+      this._lastError = { flight, trouble, at: Date.now(), remoteUrl };
+      log.warn(`[${this.name}] apus exited with code ${flight.code}${flight.reason ? ` (${flight.reason})` : ''}`);
+      if (trouble === 'offline') {
+        this.scheduleRetry();
+        if (this.retry) {
+          log.info(`[${this.name}] no connection: trying again in ${Math.round((this.retry.at - Date.now()) / 60_000)} min`);
+        }
+      } else {
+        this.offlineAttempts = 0;
+        this.cancelRetry();
+      }
     }
     this.services.onFlight({ repo: this, kind, flight, changes }, repeated);
   }
@@ -570,6 +632,7 @@ export class RepoController implements vscode.Disposable {
     }
     this._missing = true;
     this.scheduler.cancel();
+    this.cancelRetry();
     this.services.log.warn(`[${this.name}] the folder no longer exists: ${this.root.fsPath}`);
     this.services.onMissing(this);
     this.emitter.fire();

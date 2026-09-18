@@ -20,6 +20,16 @@ export const systemClock: Clock = {
   clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
+const RETRY_MINUTES = [1, 2, 5, 10];
+
+/**
+ * Cuánto esperar antes de volver a intentar un push que falló sin conexión:
+ * 1, 2 y 5 minutos, y después cada 10. `attempt` empieza en 0.
+ */
+export function retryDelayMs(attempt: number): number {
+  return RETRY_MINUTES[Math.min(Math.max(0, attempt), RETRY_MINUTES.length - 1)]! * 60_000;
+}
+
 export class FlightScheduler {
   private timer: unknown;
   private flying = false;

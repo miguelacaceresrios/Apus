@@ -34,6 +34,7 @@
   | apus + flechas girando | Subiendo. |
   | apus + escudo, con fondo amarillo | Frenado: está por subir algo que no debería. |
   | apus + cable desenchufado | Todavía no tiene URL a dónde subir. |
+  | apus + nube + `en 4:10` | Sin conexión: los commits quedan acá, y apus vuelve a intentar en 4:10. |
   | apus + advertencia, con fondo amarillo | Algo necesita tu atención. |
 
   Pasando el mouse ves el detalle y tenés acciones rápidas: pausar, subir ahora y ver los auto-commits. Con un clic abrís el menú.
@@ -42,6 +43,8 @@
 - **Vista Apus.** Tiene su propio ícono en la barra de actividad. Cada repo se abre como una ficha: su carpeta, la URL a la que sube, su rama y sus commits automáticos, con la cuenta regresiva en vivo y acciones. Con un clic en la carpeta o en la URL, las cambiás. El número sobre el ícono cuenta los repos con algo sin subir.
 - **Carpeta y URL.** *Agregar carpeta…* mira la carpeta antes de sumarla: si es una carpeta común, ofrece inicializarla; si es una subcarpeta, ofrece la raíz de su repo; y si tiene repos adentro, te pregunta cuál querías. *Conectar o cambiar URL…* valida la URL y pregunta antes de cambiarla.
 - **Errores con arreglo.** Sin URL, repo no encontrado, remoto adelantado: el aviso y la vista ofrecen el arreglo, no solo el mensaje. Si desaparece la carpeta de un repo, queda en la lista como *no está la carpeta*, para buscarla u olvidarla.
+- **Sin conexión no es un error.** Si no se puede llegar al remoto, el commit queda en tu máquina y apus vuelve a intentar solo: a los 1, 2 y 5 minutos, y después cada 10. Sin advertencias ni avisos; la vista muestra cuándo es el próximo intento.
+- **Mensajes que dicen qué cambió.** Los auto-commits llevan el nombre de sus archivos, `chore: update app.ts, README.md +2`, y la lista completa en el cuerpo.
 - **Notificaciones.** Elegís entre todos los auto-commits, solo los errores o nada. Un error repetido no se vuelve a avisar.
 - **Aviso temprano.** Si falta apus, la barra y la vista lo dicen apenas arranca VS Code y ofrecen descargarlo o buscarlo. No te enterás recién en el primer push.
 - **Guía de primeros pasos.** Un recorrido en la pantalla de Bienvenida que va desde instalar apus hasta vigilar tu primer repo.
@@ -50,7 +53,7 @@
 
 ## Requisitos
 
-- [apus](https://github.com/miguelacaceresrios/Apus) 2.1 o superior, en el `PATH` o configurado en `apus.path`.
+- [apus](https://github.com/miguelacaceresrios/Apus) 2.1 o superior, en el `PATH` o configurado en `apus.path`. Desde la 2.2, la extensión lee la salida JSON de apus en lugar de sus mensajes.
 - La extensión Git de VS Code, que ya viene incluida.
 
 Si la extensión no encuentra apus, ofrece descargarlo o elegir el binario. En Windows tiene que ser `apus.exe`: `apusw.exe` es la versión de ventana y muestra los errores en diálogos.
@@ -62,7 +65,7 @@ La extensión no reimplementa git:
 1. **Detecta los cambios** con la extensión Git de VS Code. Lo que está en `.gitignore` no cuenta.
 2. **Espera** a que el repo quede quieto `apus.watchInterval` segundos. Cada archivo guardado reinicia la espera.
 3. **Revisa** lo que subiría el push: las líneas nuevas desde el último commit, los archivos que git todavía no sigue y los commits que no están en ningún remoto. Si hay algo que no debería subir, se frena acá.
-4. **Sube** llamando a `apus --message "…"`. El proceso se lanza sin shell, sin entrada estándar y con `GIT_TERMINAL_PROMPT=0`, así nunca se queda esperando una clave.
+4. **Sube** llamando a `apus --json --message "…"` (sin `--json` con apus 2.1). El proceso se lanza sin shell, sin entrada estándar y con `GIT_TERMINAL_PROMPT=0`, así nunca se queda esperando una clave.
 5. **Marca** el commit con el trailer `Apus-Auto: true`. Así se reconoce desde la extensión, desde la terminal o desde cualquier otra herramienta:
 
    ```bash
@@ -79,7 +82,7 @@ La hora del último push sale del reflog de la rama remota. La extensión no gua
 | `apus.watchInterval` | `120` | Segundos sin cambios antes del auto-commit. |
 | `apus.minInterval` | `300` | Mínimo de segundos entre dos auto-commits del mismo repo. |
 | `apus.ignorePatterns` | `[]` | Globs cuyos cambios no disparan un auto-commit, como `*.log` o `docs/**`. |
-| `apus.messageTemplate` | `chore: auto-commit {date}` | Mensaje de los auto-commits. |
+| `apus.messageTemplate` | `chore: update {files}` | Asunto de los auto-commits. `{files}`: hasta tres nombres de archivos cambiados; `{date}`: fecha y hora. El cuerpo lista todos los archivos. |
 | `apus.checkBeforePush` | `true` | Revisar lo que está por subir. Solo desde tu configuración de usuario. |
 | `apus.maxFileSize` | `50` | Tamaño máximo, en MB, de un archivo que se puede subir (GitHub rechaza los de más de 100 MB). Solo desde tu configuración de usuario. |
 | `apus.notifications` | `all` | Qué avisar: `all`, `errors` u `off`. |
@@ -104,7 +107,7 @@ Están todos en la paleta de comandos, bajo **Apus**, y la mayoría queda a un c
 | Cambiar carpeta… | Apunta un repo de la lista a otra carpeta, y lo sigue vigilando si estaba vigilado. |
 | Conectar o cambiar URL… | Define a dónde sube un repo. |
 | Vigilar o pausar un repo | Prende o apaga el auto-commit, repo por repo. |
-| Subir ahora | add + commit + push sin esperar, con la misma revisión. |
+| Subir ahora | add + commit + push sin esperar, con la misma revisión. También en la barra de título de Control de código fuente, y con <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> (<kbd>⌘</kbd>+<kbd>⌥</kbd>+<kbd>P</kbd> en macOS). |
 | Revisar lo frenado… | Qué frenó la última subida, con un botón para arreglar cada cosa. |
 | Revisar lo que dejaste pasar… | Los avisos que marcaste como falsos, para volver a revisarlos. |
 | Commits automáticos | Los últimos auto-commits; elegí uno para abrirlo en GitHub. |

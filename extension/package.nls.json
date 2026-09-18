@@ -49,7 +49,7 @@
   "config.watchInterval": "Seconds without new changes before auto-committing.",
   "config.minInterval": "Minimum seconds between two auto-commits of the same repository, even across windows.",
   "config.ignorePatterns": "Globs, relative to the repository root, whose changes **do not trigger** an auto-commit (for example `*.log` or `docs/**`). If there are other changes, everything is pushed together: to keep files out of git, use `.gitignore`.",
-  "config.messageTemplate": "Auto-commit message. `{date}` becomes the date and time. The trailer `Apus-Auto: true` is appended so auto-commits can be recognized later.",
+  "config.messageTemplate": "Subject of auto-commits. `{files}` becomes the names of up to three changed files (`app.ts, README.md +2`) and `{date}` the date and time. The full list of files goes in the message body, and the trailer `Apus-Auto: true` at the end, so auto-commits can be recognized later.",
   "config.checkBeforePush": "Before every push, look at what is about to go up: `.env` files, private keys, tokens pasted into a file (GitHub, AWS, OpenAI, Anthropic and others) and files too big for GitHub. An auto-commit pushes nothing while one is there, and a push by hand asks first. Only your user settings can change this: a repository cannot turn it off.",
   "config.maxFileSize": "Largest file, in MB, that can be pushed. GitHub rejects files over 100 MB and warns from 50 MB.",
   "config.notifications": "Which notifications to show.",

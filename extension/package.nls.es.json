@@ -49,7 +49,7 @@
   "config.watchInterval": "Segundos sin cambios nuevos antes de hacer el auto-commit.",
   "config.minInterval": "Mínimo de segundos entre dos auto-commits del mismo repo, aunque haya varias ventanas abiertas.",
   "config.ignorePatterns": "Globs, relativos a la raíz del repo, cuyos cambios **no disparan** un auto-commit (por ejemplo `*.log` o `docs/**`). Si hay otros cambios, se suben todos juntos: para dejar archivos fuera de git usá `.gitignore`.",
-  "config.messageTemplate": "Mensaje de los auto-commits. `{date}` se reemplaza por la fecha y hora. Al final se agrega el trailer `Apus-Auto: true` para reconocerlos después.",
+  "config.messageTemplate": "Asunto de los auto-commits. `{files}` se reemplaza por los nombres de hasta tres archivos cambiados (`app.ts, README.md +2`) y `{date}` por la fecha y hora. La lista completa de archivos va en el cuerpo del mensaje y, al final, el trailer `Apus-Auto: true` para reconocerlos después.",
   "config.checkBeforePush": "Antes de cada push, mirar lo que va a subir: archivos `.env`, claves privadas, tokens pegados en un archivo (GitHub, AWS, OpenAI, Anthropic y otros) y archivos demasiado grandes para GitHub. Mientras haya alguno, un auto-commit no sube nada, y subir a mano pregunta antes. Solo se cambia desde tu configuración de usuario: un repo no lo puede apagar.",
   "config.maxFileSize": "Tamaño máximo, en MB, de un archivo que se puede subir. GitHub rechaza los de más de 100 MB y avisa desde los 50 MB.",
   "config.notifications": "Qué notificaciones mostrar.",

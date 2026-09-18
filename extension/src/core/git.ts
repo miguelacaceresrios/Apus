@@ -103,6 +103,32 @@ export async function setRemoteUrl(git: string, root: string, change: RemoteChan
   }
 }
 
+/** Un archivo que entraría en el próximo commit, como lo contaría `git status --short` después de `git add -A`. */
+export interface ChangedFile {
+  /** A: nuevo, M: modificado, D: borrado. */
+  status: 'A' | 'M' | 'D';
+  path: string;
+}
+
+/** Lo que va a entrar en el commit de apus, que hace `git add -A`. */
+export async function changedFiles(git: string, root: string): Promise<ChangedFile[]> {
+  const r = await runProcess(git, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames'], { cwd: root });
+  return r.code === 0 ? parseChanges(r.stdout) : [];
+}
+
+export function parseChanges(stdout: string): ChangedFile[] {
+  const out: ChangedFile[] = [];
+  for (const entry of stdout.split('\0')) {
+    if (entry.length < 4) {
+      continue;
+    }
+    const code = entry.slice(0, 2);
+    const status = code === '??' || code.includes('A') ? 'A' : code.includes('D') ? 'D' : 'M';
+    out.push({ status, path: entry.slice(3) });
+  }
+  return out;
+}
+
 function check(r: { code: number; stderr: string }, what: string): void {
   if (r.code !== 0) {
     throw new Error(r.stderr.trim() || `${what} exited with code ${r.code}`);

@@ -45,7 +45,7 @@ export async function showMenu(registry: Registry, repo: RepoController): Promis
         description: heldSummary(repo.held),
         run: run('apus.reviewHeld', repo.key),
       });
-    } else if (repo.lastError) {
+    } else if (repo.lastError && !repo.offline) {
       const trouble = diagnose(repo.lastError.flight);
       items.push({
         label: `$(warning) ${fixLabel(trouble) ?? vscode.l10n.t('Last push failed')}`,

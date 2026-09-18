@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DEFAULT_TEMPLATE } from './core/apus';
 
 export const SECTION = 'apus';
 
@@ -22,7 +23,7 @@ export function readRepoConfig(scope: vscode.Uri): RepoConfig {
     quietMs: seconds(c.get('watchInterval'), 120, 5),
     minGapMs: seconds(c.get('minInterval'), 300, 0),
     ignorePatterns: strings(c.get('ignorePatterns')),
-    messageTemplate: nonEmpty(c.get('messageTemplate'), 'chore: auto-commit {date}'),
+    messageTemplate: nonEmpty(c.get('messageTemplate'), DEFAULT_TEMPLATE),
     logSize: Math.min(200, Math.max(1, Math.round(number(c.get('logSize'), 20)))),
   };
 }

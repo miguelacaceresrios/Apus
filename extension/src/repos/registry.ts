@@ -124,6 +124,20 @@ export class Registry implements vscode.Disposable {
     if (typeof arg === 'string' && this.controllers.has(arg)) {
       return this.controllers.get(arg);
     }
+    // Desde la barra de Source Control llega su repo: se usa ese, no el del editor.
+    const scmRoot = typeof arg === 'object' && arg !== null ? (arg as { rootUri?: unknown }).rootUri : undefined;
+    if (scmRoot instanceof vscode.Uri) {
+      const repo = this.controllers.get(repoKey(scmRoot.fsPath));
+      if (!repo) {
+        const name = path.basename(scmRoot.fsPath);
+        const add = vscode.l10n.t('Add Folder…');
+        const answer = await vscode.window.showInformationMessage(vscode.l10n.t('apus: {0} is not on the list.', name), add);
+        if (answer === add) {
+          await vscode.commands.executeCommand('apus.addFolder', scmRoot.fsPath);
+        }
+      }
+      return repo;
+    }
     const all = this.all;
     if (all.length === 0) {
       const add = vscode.l10n.t('Add Folder…');

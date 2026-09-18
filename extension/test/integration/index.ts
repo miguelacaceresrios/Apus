@@ -174,7 +174,46 @@ export async function run(): Promise<void> {
     const files = execFileSync('git', ['ls-tree', '--name-only', 'main'], { cwd: bare, encoding: 'utf8' });
     assert.match(files, /notas\.md/);
     assert.doesNotMatch(files, /^\.env$/m);
+
+    // El mensaje nombra los archivos, los lista en el cuerpo y lleva el trailer.
+    const message = execFileSync('git', ['log', '-1', '--format=%B', 'main'], { cwd: bare, encoding: 'utf8' });
+    assert.match(message, /^chore: update .*notas\.md/, message);
+    assert.match(message, /^A notas\.md$/m, message);
+    assert.match(message, /^Apus-Auto: true$/m, message);
     await repo.setWatching(false);
+  });
+
+  await step('sin conexión: no pide arreglo, reintenta solo, y cambiar la URL lo cancela', async () => {
+    const folder = path.join(ws, 'viper', 'viper');
+    const repo = get(folder);
+    // Nada escucha en el puerto 1: git no llega al remoto.
+    await repo.setRemoteUrl('https://127.0.0.1:1/u/r.git');
+    await repo.setWatching(true);
+    await fs.writeFile(path.join(folder, 'sin-red.txt'), 'x');
+    await repo.pushNow();
+    assert.ok(repo.lastError, 'tendría que fallar');
+    assert.equal(repo.offline, true, output(repo));
+    assert.ok(repo.retryAt !== undefined && repo.retryAt > Date.now(), 'reintento programado');
+    const d = details(repo);
+    assert.match(d.error?.label ?? '', /No connection|Sin conexión/);
+    assert.equal(d.error?.command, 'apus.pushNow');
+
+    const bare = path.join(fixture, 'remotes', 'adentro.git');
+    execFileSync('git', ['init', '--bare', '--quiet', bare]);
+    await repo.setRemoteUrl(bare);
+    assert.equal(repo.lastError, undefined);
+    assert.equal(repo.retryAt, undefined);
+    await repo.setWatching(false);
+  });
+
+  await step('el botón de Source Control sube su repo, no el del editor', async () => {
+    const folder = path.join(ws, 'viper', 'viper');
+    const bare = path.join(fixture, 'remotes', 'adentro.git');
+    await fs.writeFile(path.join(folder, 'desde-scm.txt'), 'x');
+    // Lo que manda VS Code desde la barra de Source Control: el SourceControl del repo.
+    await vscode.commands.executeCommand('apus.pushNow', { rootUri: vscode.Uri.file(folder) });
+    const files = execFileSync('git', ['ls-tree', '--name-only', 'main'], { cwd: bare, encoding: 'utf8' });
+    assert.match(files, /desde-scm\.txt/, output(get(folder)));
   });
 
   await step('borrar la carpeta de un repo: sin "spawn git ENOENT", y queda para buscarla u olvidarla', async () => {
