@@ -83,8 +83,10 @@ func (f *Flow) analyze(res *Result, dir, branch string) (*Divergence, error) {
 	d.Unrelated = !gitOK(dir, "merge-base", "HEAD", sha)
 
 	// El ensayo: merge-tree calcula el merge en memoria. 0 es limpio, 1 es con
-	// conflictos (y la lista viene después del árbol).
-	args := []string{"merge-tree", "--write-tree", "--name-only", "--no-messages"}
+	// conflictos (y la lista viene después del árbol). Cada git que lista
+	// archivos va con core.quotePath=false: si no, "canción.md" sale como
+	// "canci\303\263n.md", que no se puede abrir ni mostrar.
+	args := []string{"-c", "core.quotePath=false", "merge-tree", "--write-tree", "--name-only", "--no-messages"}
 	if d.Unrelated {
 		args = append(args, "--allow-unrelated-histories")
 	}
@@ -99,11 +101,11 @@ func (f *Flow) analyze(res *Result, dir, branch string) (*Divergence, error) {
 	}
 
 	if d.Unrelated {
-		out, _ = git(dir, "ls-tree", "-r", "--name-only", sha)
+		out, _ = git(dir, "-c", "core.quotePath=false", "ls-tree", "-r", "--name-only", sha)
 		d.Ahead = revCount(dir, "HEAD")
 		d.Behind = revCount(dir, sha)
 	} else {
-		out, _ = git(dir, "diff", "--name-only", "HEAD..."+sha)
+		out, _ = git(dir, "-c", "core.quotePath=false", "diff", "--name-only", "HEAD..."+sha)
 		if counts, err := git(dir, "rev-list", "--left-right", "--count", "HEAD..."+sha); err == nil {
 			if f := strings.Fields(counts); len(f) == 2 {
 				d.Ahead, _ = strconv.Atoi(f[0])
@@ -186,7 +188,8 @@ func conflictState(dir string) *Divergence {
 	if op == "" {
 		return nil
 	}
-	out, _ := git(dir, "diff", "--name-only", "--diff-filter=U")
+	// Con el nombre tal cual: es la ruta que se abre para buscar las marcas.
+	out, _ := git(dir, "-c", "core.quotePath=false", "diff", "--name-only", "--diff-filter=U")
 	d := &Divergence{Branch: pendingBranch(dir), Rebasing: true, Operation: op, Incoming: []string{}, Conflicts: nonEmpty(out)}
 	for _, c := range d.Conflicts {
 		if hasMarkers(filepath.Join(dir, filepath.FromSlash(c))) {

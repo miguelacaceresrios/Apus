@@ -226,21 +226,27 @@ func TestSendRemotoConArchivos(t *testing.T) {
 // preparar deja una carpeta cuyo README choca con el del remoto.
 func preparar(t *testing.T) (tmp, dir, remoto string) {
 	t.Helper()
+	return prepararCon(t, "README.md")
+}
+
+// prepararCon deja una carpeta cuyo archivo nombre choca con el del remoto.
+func prepararCon(t *testing.T, nombre string) (tmp, dir, remoto string) {
+	t.Helper()
 	tmp = entorno(t)
 	remoto = bare(t, tmp, "remoto.git")
 	otro := carpeta(t, tmp, "otro", "LICENSE")
-	os.WriteFile(filepath.Join(otro, "README.md"), []byte("# el de GitHub\n"), 0o644)
+	os.WriteFile(filepath.Join(otro, nombre), []byte("# el de GitHub\n"), 0o644)
 	if _, err := Send(otro, remoto); err != nil {
 		t.Fatal(err)
 	}
 	dir = carpeta(t, tmp, "mio", "a.txt")
-	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# el mío\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, nombre), []byte("# el mío\n"), 0o644)
 	res, err := Send(dir, remoto)
 	if f, ok := err.(*Fail); !ok || f.Reason != reasonDiverged {
 		t.Fatalf("esperaba divergencia, vino %v", err)
 	}
-	if d := res.Divergence; d.Trivial() || len(d.Conflicts) != 1 || d.Conflicts[0] != "README.md" {
-		t.Fatalf("esperaba el conflicto en README.md: %+v", d)
+	if d := res.Divergence; d.Trivial() || len(d.Conflicts) != 1 || d.Conflicts[0] != nombre {
+		t.Fatalf("esperaba el conflicto en %s: %+v", nombre, d)
 	}
 	return tmp, dir, remoto
 }
@@ -274,6 +280,23 @@ func TestResolveConflictoConRebase(t *testing.T) {
 	}
 	if got := sh(t, tmp, "git", "--git-dir", remoto, "show", "main:README.md"); got != "# los dos" {
 		t.Fatalf("el README subido quedó %q", got)
+	}
+}
+
+// Con tildes en el nombre, git lo escribe "canci\303\263n.md" si no se le pide
+// lo contrario: Continuar no encontraba el archivo, no veía las marcas y las
+// subía a GitHub.
+func TestResolveConflictoConNombreNoASCII(t *testing.T) {
+	tmp, dir, remoto := prepararCon(t, "canción.md")
+	res, err := Resolve(dir, "rebase", "")
+	if f, ok := err.(*Fail); !ok || f.Reason != reasonConflicts || len(res.Divergence.Markers) != 1 || res.Divergence.Markers[0] != "canción.md" {
+		t.Fatalf("esperaba canción.md con marcas: %v %+v", err, res.Divergence)
+	}
+	if _, err := Resolve(dir, "continue", ""); err == nil || !strings.Contains(err.Error(), "marcas de conflicto") {
+		t.Fatalf("con marcas en el archivo no tenía que seguir: %v", err)
+	}
+	if got := sh(t, tmp, "git", "--git-dir", remoto, "show", "main:canción.md"); got != "# el de GitHub" {
+		t.Fatalf("a GitHub llegó %q", got)
 	}
 }
 
