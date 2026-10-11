@@ -97,6 +97,9 @@ USO
      --quit-on-close                  se apaga al cerrar la ventana (para atajos)
      --dir                            carpeta donde arranca el selector
   apus status [--json] [--dir RUTA]   estado de tus repos
+  apus guard [--json] [CARPETA]       busca secretos en lo que se subiría (apus-guard)
+  apus guard init [CARPETA]           agrega el chequeo de PR de GitHub Actions al repo
+  apus guard --pr                     (en GitHub Actions) revisa el PR y comenta
 
 OPCIONES
   -m, --message <msg>   Mensaje de commit (igual que el argumento posicional).
@@ -158,6 +161,8 @@ func run(args []string) int {
 			return cmdUI(args[1:])
 		case "status":
 			return cmdStatus(args[1:])
+		case "guard":
+			return cmdGuard(args[1:])
 		case "help":
 			printUsage()
 			return codeOK
