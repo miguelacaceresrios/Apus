@@ -21,15 +21,83 @@ import (
 //go:embed ui/index.html
 var uiHTML []byte
 
+// El ícono de la ventana, para la barra de título y la de tareas. Va el .ico,
+// con cada tamaño dibujado aparte: si el navegador achica un PNG grande, a
+// 16px queda borroso.
+//
+//go:embed assets/apus.ico
+var uiIcon []byte
+
+// El PNG grande es para el menú de aplicaciones de Linux.
+//
+//go:embed assets/apus.png
+var appIcon []byte
+
+// uiServer es una ventana local: una página servida en 127.0.0.1 que solo
+// atiende a sí misma. La usan apus y Aerodramus, cada una con su página.
 type uiServer struct {
+	app      string // "apus" o "aerodramus": los mensajes y el nombre de la cookie
+	page     []byte
+	favicon  []byte
 	bases    []string
 	token    string
 	host     string // "127.0.0.1:puerto": lo único que se acepta en la cabecera Host
+	cookie   string // una por app y puerto: las cookies no distinguen puertos
 	autoQuit bool   // apagarse cuando se cierra la ventana (atajo de escritorio)
 
 	mu       sync.Mutex
 	lastSeen time.Time // último pedido de la página
 	byeAt    time.Time // aviso de "me cierro" que mandó la página
+	login    string    // usuario de GitHub del token guardado, si ya se sabe
+}
+
+func newUIServer(app string, page, favicon []byte, autoQuit bool) *uiServer {
+	return &uiServer{app: app, page: page, favicon: favicon, token: randomToken(), autoQuit: autoQuit, lastSeen: time.Now()}
+}
+
+// serve abre el puerto (o uno libre si está ocupado y no lo pidieron), abre la
+// ventana y atiende hasta que se cierre. routes agrega lo propio de cada app.
+func (s *uiServer) serve(port int, portSet, open bool, size string, routes func(mux *http.ServeMux)) int {
+	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
+	if err != nil && !portSet {
+		// El puerto de siempre está ocupado (¿otra ventana abierta?): uno libre.
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return dieMsg(codeRepo, "no pude abrir el puerto "+strconv.Itoa(port)+": "+firstLine(err.Error()),
+			"probá con otro: --port 7400")
+	}
+	addr := ln.Addr().(*net.TCPAddr)
+	s.host = fmt.Sprintf("127.0.0.1:%d", addr.Port)
+	s.cookie = fmt.Sprintf("%s_%d", s.app, addr.Port)
+	url := "http://" + s.host + "/?t=" + s.token
+
+	okMsg(fmt.Sprintf("%s escuchando en http://%s", s.app, s.host))
+	if len(s.bases) > 0 {
+		note("repos en: " + strings.Join(s.bases, ", "))
+	}
+	if s.autoQuit {
+		note("se apaga solo al cerrar la ventana")
+		go s.watchdog()
+	} else {
+		note("cortá con Ctrl+C")
+	}
+	if open {
+		openBrowser(url, size)
+	} else {
+		note(url)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.index)
+	mux.HandleFunc("/favicon.ico", s.icon)
+	mux.HandleFunc("/api/bye", s.bye)
+	mux.HandleFunc("/api/ping", s.guard(s.apiPing))
+	routes(mux)
+	if err := http.Serve(ln, mux); err != nil {
+		return dieMsg(codeRepo, "el servidor se cayó: "+firstLine(err.Error()), "")
+	}
+	return codeOK
 }
 
 func cmdUI(args []string) int {
@@ -78,38 +146,16 @@ func cmdUI(args []string) int {
 		return dieMsg(codeRepo, "no sé dónde buscar repos", "pasá --dir RUTA o definí APUS_REPOS_DIR")
 	}
 
-	srv := &uiServer{bases: bases, token: randomToken(), autoQuit: autoQuit, lastSeen: time.Now()}
-	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
-	if err != nil && !portSet {
-		// El puerto de siempre está ocupado (¿otra ventana de apus abierta?): uno libre.
-		ln, err = net.Listen("tcp", "127.0.0.1:0")
-	}
-	if err != nil {
-		return dieMsg(codeRepo, "no pude abrir el puerto "+strconv.Itoa(port)+": "+firstLine(err.Error()),
-			"probá con otro: apus ui --port 7400")
-	}
-	addr := ln.Addr().(*net.TCPAddr)
-	srv.host = fmt.Sprintf("127.0.0.1:%d", addr.Port)
-	url := "http://" + srv.host + "/?t=" + srv.token
-
-	okMsg(fmt.Sprintf("apus ui escuchando en http://127.0.0.1:%d", addr.Port))
-	note("repos en: " + strings.Join(bases, ", "))
-	if autoQuit {
-		note("se apaga solo al cerrar la ventana")
-		go srv.watchdog()
-	} else {
-		note("cortá con Ctrl+C")
-	}
-	if open {
-		openBrowser(url)
-	} else {
-		note(url)
-	}
-
-	if err := http.Serve(ln, srv.routes()); err != nil {
-		return dieMsg(codeRepo, "el servidor se cayó: "+firstLine(err.Error()), "")
-	}
-	return codeOK
+	srv := newUIServer("apus", uiHTML, uiIcon, autoQuit)
+	srv.bases = bases
+	return srv.serve(port, portSet, open, "560,620", func(mux *http.ServeMux) {
+		mux.HandleFunc("/api/pick", srv.guard(srv.apiPick))
+		mux.HandleFunc("/api/inspect", srv.guard(srv.apiInspect))
+		mux.HandleFunc("/api/send", srv.guard(srv.apiSend))
+		mux.HandleFunc("/api/resolve", srv.guard(srv.apiResolve))
+		mux.HandleFunc("/api/token", srv.guard(srv.apiToken))
+		mux.HandleFunc("/api/workflow", srv.guard(srv.apiWorkflow))
+	})
 }
 
 func randomToken() string {
@@ -128,7 +174,7 @@ func (s *uiServer) seen() {
 }
 
 // watchdog es la red de seguridad del modo --quit-on-close: si la ventana se
-// fue sin avisar (o se colgó el navegador), apus no queda corriendo para siempre.
+// fue sin avisar (o se colgó el navegador), no queda corriendo para siempre.
 func (s *uiServer) watchdog() {
 	for range time.Tick(30 * time.Second) {
 		s.mu.Lock()
@@ -140,11 +186,17 @@ func (s *uiServer) watchdog() {
 	}
 }
 
+// allowed dice si el pedido viene de la propia página: el Host exacto y la
+// cookie con el token.
+func (s *uiServer) allowed(r *http.Request) bool {
+	c, err := r.Cookie(s.cookie)
+	return err == nil && c.Value == s.token && r.Host == s.host
+}
+
 // bye lo llama la página cuando se cierra. Esperamos unos segundos por si fue
 // una recarga: si vuelve a pedir algo, nos quedamos.
 func (s *uiServer) bye(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie("apus")
-	if err != nil || c.Value != s.token || r.Host != s.host {
+	if !s.allowed(r) {
 		http.Error(w, "sin permiso", http.StatusForbidden)
 		return
 	}
@@ -166,18 +218,7 @@ func (s *uiServer) bye(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-func (s *uiServer) routes() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.index)
-	mux.HandleFunc("/api/bye", s.bye)
-	mux.HandleFunc("/api/ping", s.guard(s.apiPing))
-	mux.HandleFunc("/api/pick", s.guard(s.apiPick))
-	mux.HandleFunc("/api/inspect", s.guard(s.apiInspect))
-	mux.HandleFunc("/api/send", s.guard(s.apiSend))
-	return mux
-}
-
-// index entrega la página. El enlace que abre la terminal trae el token; a
+// index entrega la página. El enlace que abre la ventana trae el token; a
 // partir de ahí vive en una cookie, así que recargar la página sigue andando.
 func (s *uiServer) index(w http.ResponseWriter, r *http.Request) {
 	if r.Host != s.host {
@@ -190,19 +231,31 @@ func (s *uiServer) index(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Query().Get("t") == s.token {
 		http.SetCookie(w, &http.Cookie{
-			Name: "apus", Value: s.token, Path: "/",
+			Name: s.cookie, Value: s.token, Path: "/",
 			HttpOnly: true, SameSite: http.SameSiteStrictMode,
 		})
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	if c, err := r.Cookie("apus"); err != nil || c.Value != s.token {
-		http.Error(w, "esta ventana perdió el permiso: volvé a correr 'apus ui' en la terminal", http.StatusForbidden)
+	if !s.allowed(r) {
+		http.Error(w, "esta ventana perdió el permiso: cerrala y volvé a abrir "+s.app, http.StatusForbidden)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Write(uiHTML)
+	w.Write(s.page)
+}
+
+// icon no pide el token: es una imagen pública, y el navegador la pide también
+// para la barra de tareas, a veces sin la cookie.
+func (s *uiServer) icon(w http.ResponseWriter, r *http.Request) {
+	if r.Host != s.host {
+		http.Error(w, "sin permiso", http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Content-Type", "image/x-icon")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write(s.favicon)
 }
 
 // guard deja pasar sólo a la propia página: cookie del token, una cabecera que
@@ -210,8 +263,7 @@ func (s *uiServer) index(w http.ResponseWriter, r *http.Request) {
 // Host exacto (así un dominio que resuelva a 127.0.0.1 tampoco entra).
 func (s *uiServer) guard(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie("apus")
-		if err != nil || c.Value != s.token || r.Header.Get("X-Apus") == "" || r.Host != s.host {
+		if !s.allowed(r) || r.Header.Get("X-Apus") == "" {
 			http.Error(w, "sin permiso", http.StatusForbidden)
 			return
 		}
@@ -251,29 +303,39 @@ func (s *uiServer) apiPick(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"cancelled": true})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"dir": dir, "inspect": Inspect(dir)})
+	writeJSON(w, http.StatusOK, map[string]any{"dir": dir, "inspect": InspectFull(dir)})
 }
 
 func (s *uiServer) apiInspect(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, Inspect(strings.TrimSpace(r.URL.Query().Get("dir"))))
+	writeJSON(w, http.StatusOK, InspectFull(strings.TrimSpace(r.URL.Query().Get("dir"))))
 }
 
 type sendRequest struct {
-	Dir string `json:"dir"`
-	URL string `json:"url"`
+	Dir    string `json:"dir"`
+	URL    string `json:"url"`
+	Action string `json:"action"`
+	Lease  string `json:"lease"`
 }
 
-func (s *uiServer) apiSend(w http.ResponseWriter, r *http.Request) {
-	var req sendRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		badRequest(w, "no entendí el pedido: "+err.Error())
-		return
+func decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	if r.Method != http.MethodPost {
+		http.Error(w, "solo POST", http.StatusMethodNotAllowed)
+		return false
 	}
-	res, err := Send(strings.TrimSpace(req.Dir), req.URL)
-	body := map[string]any{"result": res, "inspect": Inspect(strings.TrimSpace(req.Dir))}
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		badRequest(w, "no entendí el pedido: "+err.Error())
+		return false
+	}
+	return true
+}
+
+// flight arma la respuesta de "Subir" y de sus salidas: el resultado, cómo
+// quedó la carpeta, y si falló, el porqué para que la página ofrezca qué hacer.
+func flight(w http.ResponseWriter, dir string, res *Result, err error) {
+	body := map[string]any{"result": res, "inspect": InspectFull(dir)}
 	if err != nil {
 		if f, ok := err.(*Fail); ok {
-			body["error"], body["hint"], body["code"] = f.Msg, f.Hint, f.Code
+			body["error"], body["hint"], body["code"], body["reason"] = f.Msg, f.Hint, f.Code, f.Reason
 		} else {
 			body["error"] = err.Error()
 		}
@@ -281,9 +343,110 @@ func (s *uiServer) apiSend(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, body)
 }
 
+func (s *uiServer) apiSend(w http.ResponseWriter, r *http.Request) {
+	var req sendRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	dir := strings.TrimSpace(req.Dir)
+	res, err := Send(dir, req.URL)
+	flight(w, dir, res, err)
+}
+
+// apiResolve aplica la salida que se eligió cuando GitHub rechazó el push.
+func (s *uiServer) apiResolve(w http.ResponseWriter, r *http.Request) {
+	var req sendRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	dir := strings.TrimSpace(req.Dir)
+	res, err := Resolve(dir, req.Action, req.Lease)
+	flight(w, dir, res, err)
+}
+
+// apiToken guarda, muestra el estado o borra el token de GitHub. El token
+// entra por acá y va derecho al llavero del sistema: nunca vuelve a la página,
+// ni a un archivo, ni a un log.
+func (s *uiServer) apiToken(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		_, err := loadToken()
+		s.mu.Lock()
+		login := s.login
+		s.mu.Unlock()
+		writeJSON(w, http.StatusOK, map[string]any{"configured": err == nil, "login": login, "store": keyringStore()})
+	case http.MethodPost:
+		var req struct {
+			Token string `json:"token"`
+		}
+		if !decode(w, r, &req) {
+			return
+		}
+		token := strings.TrimSpace(req.Token)
+		if token == "" {
+			badRequest(w, "pegá el token")
+			return
+		}
+		login, err := newGitHub(token).whoami()
+		if err != nil {
+			badRequest(w, "no guardé el token: "+err.Error())
+			return
+		}
+		if err := keyringSet(tokenName, token); err != nil {
+			badRequest(w, err.Error())
+			return
+		}
+		s.mu.Lock()
+		s.login = login
+		s.mu.Unlock()
+		writeJSON(w, http.StatusOK, map[string]any{"configured": true, "login": login})
+	case http.MethodDelete:
+		if err := keyringDelete(tokenName); err != nil {
+			badRequest(w, err.Error())
+			return
+		}
+		s.mu.Lock()
+		s.login = ""
+		s.mu.Unlock()
+		writeJSON(w, http.StatusOK, map[string]any{"configured": false})
+	default:
+		http.Error(w, "método no permitido", http.StatusMethodNotAllowed)
+	}
+}
+
+// keyringStore es el nombre del llavero donde queda el token, para la página.
+func keyringStore() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "Administrador de credenciales de Windows"
+	case "darwin":
+		return "Llavero de macOS"
+	}
+	return "llavero del sistema (Secret Service)"
+}
+
+// apiWorkflow agrega el chequeo de PR (GitHub Actions) al repo de la carpeta.
+func (s *uiServer) apiWorkflow(w http.ResponseWriter, r *http.Request) {
+	var req sendRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	dir := strings.TrimSpace(req.Dir)
+	if in := Inspect(dir); !in.Exists || in.InsideOf != "" {
+		badRequest(w, "elegí primero la carpeta del proyecto")
+		return
+	}
+	p, err := writeWorkflow(dir)
+	if err != nil {
+		badRequest(w, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"path": filepath.ToSlash(p), "inspect": InspectFull(dir)})
+}
+
 // openBrowser abre la UI como ventana de aplicación si encuentra un navegador
 // basado en Chromium; si no, en el navegador por defecto.
-func openBrowser(url string) {
+func openBrowser(url, size string) {
 	appArg := "--app=" + url
 	var candidates []string
 	switch runtime.GOOS {
@@ -315,7 +478,7 @@ func openBrowser(url string) {
 		} else if _, err := os.Stat(path); err != nil {
 			continue
 		}
-		if err := exec.Command(path, appArg, "--new-window", "--window-size=540,500").Start(); err == nil {
+		if err := exec.Command(path, appArg, "--new-window", "--window-size="+size).Start(); err == nil {
 			return
 		}
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,8 @@ func entorno(t *testing.T) string {
 	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(tmp, "gitconfig"))
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+	// El log de apus-guard va a la carpeta de la prueba, no al de la máquina.
+	t.Setenv("APUS_LOG", filepath.Join(tmp, "guard-log.json"))
 	for _, kv := range [][2]string{
 		{"user.name", "apus test"}, {"user.email", "test@example.com"}, {"init.defaultBranch", "main"},
 	} {
@@ -182,23 +185,182 @@ func TestSendDentroDeOtroRepo(t *testing.T) {
 	}
 }
 
-// Un repo creado en GitHub con README ya tiene commits: git rechaza el push y
-// apus lo explica en criollo.
+// Un repo creado en GitHub con README y licencia: el push se rechaza, apus
+// trae lo del remoto, ve que no choca y ofrece "Traer y continuar".
 func TestSendRemotoConArchivos(t *testing.T) {
 	tmp := entorno(t)
 	remoto := bare(t, tmp, "remoto.git")
-	otro := carpeta(t, tmp, "otro", "README.md")
+	otro := carpeta(t, tmp, "otro", "README.md", "LICENSE")
 	if _, err := Send(otro, remoto); err != nil {
 		t.Fatal(err)
 	}
 
 	dir := carpeta(t, tmp, "mio", "a.txt")
-	_, err := Send(dir, remoto)
-	if codigo(err) != codePush {
-		t.Fatalf("esperaba push rechazado, vino %v", err)
+	res, err := Send(dir, remoto)
+	f, ok := err.(*Fail)
+	if !ok || f.Reason != reasonDiverged || res.Divergence == nil {
+		t.Fatalf("esperaba el análisis de divergencia, vino %v %+v", err, res)
 	}
-	if !strings.Contains(err.(*Fail).Hint, "README") {
-		t.Fatalf("la pista no ayuda: %q", err.(*Fail).Hint)
+	d := res.Divergence
+	if !d.Unrelated || !d.Trivial() || len(d.Incoming) != 2 || d.Lease == "" {
+		t.Fatalf("esperaba historias sin relación, sin conflictos, con README y LICENSE entrantes: %+v", d)
+	}
+	if !res.Committed {
+		t.Fatal("el commit local tenía que quedar hecho")
+	}
+
+	res, err = Resolve(dir, "pull", "")
+	if err != nil || !res.Pushed {
+		t.Fatalf("Traer y continuar tenía que subir: %v %+v", err, res)
+	}
+	if sh(t, dir, "git", "rev-parse", "HEAD") != sh(t, tmp, "git", "--git-dir", remoto, "rev-parse", "main") {
+		t.Fatal("el remoto no quedó igual que la carpeta")
+	}
+	for _, name := range []string{"README.md", "LICENSE", "a.txt"} {
+		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
+			t.Fatalf("falta %s", name)
+		}
+	}
+}
+
+// preparar deja una carpeta cuyo README choca con el del remoto.
+func preparar(t *testing.T) (tmp, dir, remoto string) {
+	t.Helper()
+	tmp = entorno(t)
+	remoto = bare(t, tmp, "remoto.git")
+	otro := carpeta(t, tmp, "otro", "LICENSE")
+	os.WriteFile(filepath.Join(otro, "README.md"), []byte("# el de GitHub\n"), 0o644)
+	if _, err := Send(otro, remoto); err != nil {
+		t.Fatal(err)
+	}
+	dir = carpeta(t, tmp, "mio", "a.txt")
+	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# el mío\n"), 0o644)
+	res, err := Send(dir, remoto)
+	if f, ok := err.(*Fail); !ok || f.Reason != reasonDiverged {
+		t.Fatalf("esperaba divergencia, vino %v", err)
+	}
+	if d := res.Divergence; d.Trivial() || len(d.Conflicts) != 1 || d.Conflicts[0] != "README.md" {
+		t.Fatalf("esperaba el conflicto en README.md: %+v", d)
+	}
+	return tmp, dir, remoto
+}
+
+// Con conflictos: "Traer y continuar" no se puede; el rebase queda a mitad,
+// y Continuar solo sigue cuando ya no hay marcas.
+func TestResolveConflictoConRebase(t *testing.T) {
+	tmp, dir, remoto := preparar(t)
+
+	if _, err := Resolve(dir, "pull", ""); err == nil || err.(*Fail).Reason != reasonDiverged {
+		t.Fatalf("con conflictos, traer y continuar no tenía que hacer nada: %v", err)
+	}
+	res, err := Resolve(dir, "rebase", "")
+	if f, ok := err.(*Fail); !ok || f.Reason != reasonConflicts || res.Divergence == nil || !res.Divergence.Rebasing {
+		t.Fatalf("esperaba el rebase a mitad: %v %+v", err, res)
+	}
+	if in := Inspect(dir); in.Pending == nil || len(in.Pending.Markers) != 1 {
+		t.Fatalf("Inspect tenía que ver el conflicto pendiente: %+v", in.Pending)
+	}
+	if _, err := Send(dir, remoto); err == nil || err.(*Fail).Reason != reasonConflicts {
+		t.Fatalf("Subir a mitad de un rebase no tiene que commitear nada: %v", err)
+	}
+
+	if _, err := Resolve(dir, "continue", ""); err == nil || !strings.Contains(err.Error(), "marcas de conflicto") {
+		t.Fatalf("con marcas en el archivo no tenía que seguir: %v", err)
+	}
+	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# los dos\n"), 0o644)
+	res, err = Resolve(dir, "continue", "")
+	if err != nil || !res.Pushed {
+		t.Fatalf("resuelto, tenía que subir: %v %+v", err, res)
+	}
+	if got := sh(t, tmp, "git", "--git-dir", remoto, "show", "main:README.md"); got != "# los dos" {
+		t.Fatalf("el README subido quedó %q", got)
+	}
+}
+
+func TestResolveCancelar(t *testing.T) {
+	_, dir, _ := preparar(t)
+	antes := sh(t, dir, "git", "rev-parse", "HEAD")
+	if _, err := Resolve(dir, "rebase", ""); err == nil {
+		t.Fatal("esperaba conflicto")
+	}
+	res, err := Resolve(dir, "abort", "")
+	if f, ok := err.(*Fail); !ok || f.Reason != reasonDiverged || res.Divergence == nil {
+		t.Fatalf("después de cancelar tenía que volver a ofrecer las opciones: %v", err)
+	}
+	if pending(dir) != "" || sh(t, dir, "git", "rev-parse", "HEAD") != antes {
+		t.Fatal("cancelar tenía que dejar la carpeta como estaba")
+	}
+}
+
+// Sobrescribir es explícito y atado al commit que se mostró: si GitHub cambió
+// en el medio, no pisa nada.
+func TestResolveSobrescribir(t *testing.T) {
+	tmp, dir, remoto := preparar(t)
+	res, _ := Send(dir, remoto)
+	lease := res.Divergence.Lease
+
+	if _, err := Resolve(dir, "force", ""); codigo(err) != codeUsage {
+		t.Fatalf("sin el commit a pisar no se sobrescribe: %v", err)
+	}
+
+	// Alguien sube algo mientras tanto.
+	otro := filepath.Join(tmp, "otro")
+	os.WriteFile(filepath.Join(otro, "nuevo.txt"), []byte("x\n"), 0o644)
+	if _, err := Send(otro, remoto); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Resolve(dir, "force", lease); err == nil || !strings.Contains(err.Error(), "cambió mientras decidías") {
+		t.Fatalf("con GitHub cambiado no tenía que pisar: %v", err)
+	}
+
+	res, _ = Send(dir, remoto)
+	res, err := Resolve(dir, "force", res.Divergence.Lease)
+	if err != nil || !res.Pushed {
+		t.Fatalf("con el commit al día tenía que sobrescribir: %v", err)
+	}
+	if sh(t, dir, "git", "rev-parse", "HEAD") != sh(t, tmp, "git", "--git-dir", remoto, "rev-parse", "main") {
+		t.Fatal("el remoto no quedó como la carpeta")
+	}
+}
+
+// Con un secreto crítico, Subir no toca nada: ni init, ni remoto, ni commit.
+func TestSendFrenaSecretos(t *testing.T) {
+	tmp := entorno(t)
+	dir := carpeta(t, tmp, "api", "a.txt")
+	os.WriteFile(filepath.Join(dir, "appsettings.json"), []byte(`{"ConnectionStrings":{"Db":"Server=db;Database=x;User ID=sa;Password=Muy-Secreta1"}}`), 0o644)
+	remoto := bare(t, tmp, "remoto.git")
+
+	var reported []Finding
+	orig := reportSecrets
+	reportSecrets = func(url string, fs []Finding) ([]IssueRef, string) {
+		reported = fs
+		return []IssueRef{{Finding: fs[0].ID, Number: 7, URL: "https://github.com/x/y/issues/7", New: true}}, ""
+	}
+	defer func() { reportSecrets = orig }()
+
+	res, err := Send(dir, remoto)
+	if f, ok := err.(*Fail); !ok || f.Reason != reasonSecrets {
+		t.Fatalf("esperaba el freno de apus-guard: %v", err)
+	}
+	if len(res.Findings) != 1 || len(res.Issues) != 1 || len(reported) != 1 {
+		t.Fatalf("esperaba el hallazgo y su issue: %+v", res)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+		t.Fatal("con un secreto no tenía que inicializar nada")
+	}
+	if commitsEn(t, remoto) != 0 {
+		t.Fatal("llegó algo al remoto")
+	}
+	data, _ := json.Marshal(res)
+	if strings.Contains(string(data), "Muy-Secreta1") {
+		t.Fatal("el secreto aparece en la respuesta")
+	}
+
+	// Un aviso no frena.
+	os.WriteFile(filepath.Join(dir, "appsettings.json"), []byte(`{"AzureAd":{"ClientId":"8f2c1d9e-1111-2222-3333-444455556666"}}`), 0o644)
+	res, err = Send(dir, remoto)
+	if err != nil || !res.Pushed || len(res.Findings) != 1 || res.Findings[0].Severity != sevWarning {
+		t.Fatalf("con un aviso tenía que subir y avisar: %v %+v", err, res)
 	}
 }
 

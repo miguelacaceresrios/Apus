@@ -69,6 +69,13 @@ type Result struct {
 	Summary   string `json:"summary"`
 	Note      string `json:"note,omitempty"`   // algo que conviene avisar, aunque haya salido bien
 	Commit    string `json:"commit,omitempty"` // el commit nuevo, abreviado
+
+	// Para la ventana: lo que encontró apus-guard, los issues que abrió, y el
+	// análisis cuando GitHub rechaza el push.
+	Findings   []Finding   `json:"findings,omitempty"`
+	Ignored    int         `json:"ignored,omitempty"`
+	Issues     []IssueRef  `json:"issues,omitempty"`
+	Divergence *Divergence `json:"divergence,omitempty"`
 }
 
 // Flow ejecuta add + commit + push. La UI y la CLI comparten esto; lo único que

@@ -3,79 +3,175 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f6f3ed" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1917" media="(prefers-color-scheme: dark)">
 <title>apus</title>
+<link rel="icon" href="/favicon.ico">
 <style>
+/* Los colores salen del vencejo: el café casi negro del plumaje, el crema del
+   pecho y el arena de las alas. Sin imágenes: el ave ya está en la barra. */
 :root {
 	color-scheme: light dark;
-	--bg: #faf9f7;
-	--field: #ffffff;
-	--line: #dcd7cf;
-	--ink: #1b1a18;
-	--dim: #8a8379;
-	--accent: #c2571f;
-	--on-accent: #fff;
-	--bad: #b03636;
-	--ok: #2d7a52;
-	--warn: #96690f;
+	--bg: #f6f3ed;
+	--surface: #fffdf9;
+	--line: #e2dacd;
+	--line-strong: #cfc5b5;
+	--ink: #2a2320;
+	--dim: #6f675e;
+	--primary: #2a2320;
+	--on-primary: #f6f3ed;
+	--ring: rgba(42, 35, 32, .16);
+	--crit: #b3261e;
+	--crit-bg: #fbeeec;
+	--warn: #8f6200;
+	--warn-bg: #fbf3e2;
+	--ok: #2e7d4f;
+	--ok-bg: #edf6f0;
+	--info-bg: #f1ede6;
+	--mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
 }
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: #161518;
-		--field: #1e1d22;
-		--line: #34323a;
-		--ink: #eae7e2;
-		--dim: #837d74;
-		--accent: #ef8a4b;
-		--on-accent: #1a1004;
-		--bad: #e57b7b;
-		--ok: #5fc08d;
-		--warn: #d7ae57;
+		--bg: #1c1917;
+		--surface: #24201e;
+		--line: #37312d;
+		--line-strong: #4a423d;
+		--ink: #efe9e1;
+		--dim: #a09789;
+		--primary: #ebe3d6;
+		--on-primary: #1c1917;
+		--ring: rgba(235, 227, 214, .2);
+		--crit: #f2877b;
+		--crit-bg: #33201d;
+		--warn: #e5b95c;
+		--warn-bg: #30271a;
+		--ok: #86c7a0;
+		--ok-bg: #1d2a22;
+		--info-bg: #2a2522;
 	}
 }
 * { box-sizing: border-box; }
+html { background: var(--bg); }
 body {
-	margin: 0; padding: 26px 22px;
-	font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
-	background: var(--bg); color: var(--ink);
+	margin: 0; padding: 28px 24px 32px;
+	font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+	color: var(--ink); background: var(--bg);
 	-webkit-font-smoothing: antialiased;
 }
 main { max-width: 480px; margin: 0 auto; }
+[hidden] { display: none !important; }
 
-h1 { display: flex; align-items: center; gap: 8px; margin: 0 0 22px; font-size: 16px; font-weight: 600; }
-h1 svg { width: 16px; height: 16px; fill: var(--accent); }
+header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; }
+h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+header p { margin: 2px 0 0; font-size: 13px; color: var(--dim); }
 
-label { display: block; margin: 0 0 6px; font-size: 12.5px; color: var(--dim); }
+label {
+	display: block; margin: 0 0 6px;
+	font-size: 12.5px; font-weight: 600; color: var(--dim);
+}
 .row { display: flex; gap: 8px; }
 input {
-	width: 100%; min-width: 0; padding: 9px 11px;
-	font: 13px/1.4 "Cascadia Mono", Consolas, ui-monospace, monospace; color: inherit;
-	background: var(--field); border: 1px solid var(--line); border-radius: 7px;
+	width: 100%; min-width: 0; height: 40px; padding: 0 12px;
+	font: 13px/1 var(--mono); color: inherit;
+	background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px;
+	transition: border-color .12s, box-shadow .12s;
 }
-input:focus { outline: none; border-color: var(--accent); }
-input::placeholder { color: var(--dim); font-family: "Segoe UI", system-ui, sans-serif; }
-
-.hint { min-height: 18px; margin: 5px 0 16px; font-size: 12.5px; color: var(--dim); }
-.hint.bad { color: var(--bad); }
+input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--ring); }
+input::placeholder { color: var(--dim); opacity: .75; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+.hint { min-height: 18px; margin: 6px 1px 14px; font-size: 12.5px; color: var(--dim); overflow-wrap: anywhere; }
+.hint.bad { color: var(--crit); }
 .hint.warn { color: var(--warn); }
 
 button {
-	font: inherit; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 9px 14px;
-	border: 1px solid var(--line); background: var(--field); color: var(--ink); flex: none;
+	font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; height: 40px; padding: 0 16px;
+	border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); flex: none;
+	transition: background .12s, border-color .12s, opacity .12s;
 }
-button:hover:not(:disabled) { border-color: var(--accent); }
-button.go { width: 100%; border: 0; background: var(--accent); color: var(--on-accent); padding: 11px; }
-button.go:hover:not(:disabled) { filter: brightness(1.07); }
+button:hover:not(:disabled) { border-color: var(--ink); }
+button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
 button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+button.primary:hover:not(:disabled) { opacity: .9; }
+button.danger { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 45%, transparent); background: transparent; }
+button.danger:hover:not(:disabled) { border-color: var(--crit); }
+button.danger.solid { background: var(--crit); color: #fff; border-color: var(--crit); }
+button.link { height: auto; padding: 2px 0; border: 0; background: none; color: var(--dim); font-weight: 600; font-size: 13px; }
+button.link:hover:not(:disabled) { color: var(--ink); }
+#send { width: 100%; height: 44px; margin-top: 2px; font-size: 14.5px; }
+.spin { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-#st { margin-top: 14px; font-size: 13px; min-height: 20px; word-break: break-word; }
-#st.ok { color: var(--ok); }
-#st.bad { color: var(--bad); }
-#st small { display: block; margin-top: 3px; color: var(--dim); }
+/* Paneles: el resultado, lo de apus-guard, las salidas cuando GitHub rechaza. */
+.panel {
+	margin-top: 14px; padding: 14px 16px; border-radius: 10px;
+	background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line-strong);
+	overflow-wrap: anywhere;
+}
+.panel.ok { border-left-color: var(--ok); }
+.panel.crit { border-left-color: var(--crit); }
+.panel.warn { border-left-color: var(--warn); }
+.panel h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.panel.ok h2 { color: var(--ok); }
+.panel.crit h2 { color: var(--crit); }
+.panel.warn h2 { color: var(--warn); }
+.panel p { margin: 5px 0 0; color: var(--dim); font-size: 13px; }
+.panel .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.panel .actions button { height: 36px; font-size: 13px; }
+.panel a { color: var(--ink); font-weight: 600; font-size: 13px; text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+.panel a:hover { border-color: var(--ink); }
+code { font-family: var(--mono); font-size: 12px; }
+p code, .fix code { padding: 1px 4px; border-radius: 4px; background: var(--info-bg); }
+
+.files { margin: 8px 0 0; padding: 0; list-style: none; font: 12px/1.7 var(--mono); max-height: 132px; overflow: auto; }
+.files li::before { content: "· "; color: var(--dim); }
+.files li.clash { color: var(--crit); }
+.files li.done { color: var(--ok); }
+
+.findings { margin: 10px 0 0; padding: 0; list-style: none; }
+.findings li { padding: 10px 0; border-top: 1px solid var(--line); }
+.findings li:first-child { border-top: 0; padding-top: 2px; }
+.findings .top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.badge { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; }
+.badge.critical { color: var(--crit); background: var(--crit-bg); }
+.badge.warning { color: var(--warn); background: var(--warn-bg); }
+.findings .where { font: 12px var(--mono); color: var(--dim); }
+.findings .title { font-weight: 600; font-size: 13px; margin-top: 3px; }
+.findings pre { margin: 6px 0 0; padding: 7px 9px; border-radius: 6px; background: var(--info-bg); font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.findings .fix { margin-top: 6px; font-size: 12.5px; color: var(--dim); }
+
+.caution { margin-top: 12px; padding: 11px 13px; border-radius: 8px; background: var(--crit-bg); font-size: 13px; }
+.caution b { color: var(--crit); }
+
+#settings { margin: 0 0 22px; }
+#settings .row { margin-top: 10px; }
+#settings .sep { height: 1px; margin: 16px 0 14px; background: var(--line); }
 </style>
 </head>
 <body>
 <main>
-	<h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8C9.8 5.6 6.4 9.6 1.4 14.6C2.6 15.4 3.4 16.2 4.6 17.4C7.4 14.6 9.6 12.4 12 10.4C14.4 12.4 16.6 14.6 19.4 17.4C20.6 16.2 21.4 15.4 22.6 14.6C17.6 9.6 14.2 5.6 12 2.8Z"/></svg>apus</h1>
+	<header>
+		<div>
+			<h1>apus</h1>
+			<p>Tu carpeta a GitHub, en un paso.</p>
+		</div>
+		<button class="link" id="toggleSettings" aria-expanded="false">GitHub</button>
+	</header>
+
+	<section class="panel" id="settings" hidden>
+		<h2>GitHub</h2>
+		<p id="tokenStatus">…</p>
+		<div class="row">
+			<input id="token" type="password" placeholder="token (ghp_… o github_pat_…)" autocomplete="off" spellcheck="false">
+			<button id="saveToken">Guardar</button>
+		</div>
+		<p>Con un token, cuando apus-guard frena una subida deja un issue en el repo. Necesita permiso de <b>Issues</b> (lectura y escritura). Se guarda en el <span id="store">llavero del sistema</span>, nunca en un archivo.</p>
+		<div class="actions"><button class="link" id="deleteToken" hidden>Borrar el token</button></div>
+		<div class="sep"></div>
+		<h2>Chequeo en los pull requests</h2>
+		<p>Agrega <code>.github/workflows/apus-guard.yml</code> al repo de la carpeta: revisa cada PR, comenta los secretos en su línea y falla el check si hay algo crítico.</p>
+		<div class="actions"><button id="addWorkflow">Agregar a este repo</button></div>
+		<p id="workflowMsg" hidden></p>
+	</section>
 
 	<label for="dir">Carpeta</label>
 	<div class="row">
@@ -88,17 +184,24 @@ button:disabled { opacity: .45; cursor: default; }
 	<input id="url" placeholder="https://github.com/usuario/repo.git" spellcheck="false" autocomplete="off">
 	<div class="hint" id="urlHint"></div>
 
-	<button class="go" id="send" disabled>Subir</button>
-	<div id="st"></div>
+	<button class="primary" id="send" disabled>Subir</button>
+
+	<section id="guard" class="panel" hidden></section>
+	<section id="st" class="panel" hidden role="status"></section>
 </main>
 
 <script>
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const api = async (path, body) => {
+const el = (tag, props, ...kids) => {
+	const e = Object.assign(document.createElement(tag), props || {});
+	e.append(...kids.filter((k) => k !== null && k !== undefined && k !== false));
+	return e;
+};
+const api = async (path, body, method) => {
 	const res = await fetch(path, {
-		method: body ? "POST" : "GET",
+		method: method || (body ? "POST" : "GET"),
 		headers: { "X-Apus": "1", "Content-Type": "application/json" },
 		body: body ? JSON.stringify(body) : undefined,
 	});
@@ -122,11 +225,20 @@ function hint(id, text, cls) {
 	h.className = "hint" + (cls ? " " + cls : "");
 }
 
+// Los textos con `código` se muestran con el código marcado, sin innerHTML.
+function rich(text) {
+	return String(text || "").split("`").map((part, i) => (i % 2 ? el("code", { textContent: part }) : part));
+}
+
+const plural = (n, uno, varios) => n + " " + (n === 1 ? uno : varios);
+
+// ─── la carpeta ─────────────────────────────────────────────────────────
+
 // Al cambiar de carpeta: si ya tiene remoto, la URL pasa a ser la suya. Así nunca
 // se le pega por error la URL de la carpeta anterior.
 function aplicar(i) {
 	info = i;
-	if (!i || !i.dir) { hint("dirHint", ""); return refrescar(); }
+	if (!i || !i.dir) { hint("dirHint", ""); mostrarGuard([]); return refrescar(); }
 	if (!i.exists) hint("dirHint", "esa carpeta no existe", "bad");
 	else if (i.insideOf) hint("dirHint", "está dentro de otro repo (" + i.insideOf + "): elegí la raíz", "bad");
 	else if (!i.isRepo) hint("dirHint", "carpeta nueva: se convierte en repo al subir");
@@ -134,6 +246,8 @@ function aplicar(i) {
 
 	if (i.remoteUrl) { $("url").value = i.remoteUrl; urlAuto = true; }
 	else if (urlAuto) { $("url").value = ""; urlAuto = false; }
+	mostrarGuard(i.findings || []);
+	if (i.pending) mostrarPendiente(i.pending);
 	refrescar();
 }
 
@@ -146,6 +260,7 @@ function refrescar() {
 	}
 	const lista = info && info.exists && !info.insideOf && url;
 	$("send").disabled = busy || !lista;
+	document.querySelectorAll("#st button, #addWorkflow").forEach((b) => { b.disabled = busy; });
 }
 
 async function inspeccionar() {
@@ -159,7 +274,7 @@ $("pick").onclick = async () => {
 	$("pick").disabled = true;
 	try {
 		const r = await api("/api/pick?from=" + encodeURIComponent($("dir").value.trim()));
-		if (r.dir) { $("dir").value = r.dir; aplicar(r.inspect); }
+		if (r.dir) { $("dir").value = r.dir; ocultar(); aplicar(r.inspect); }
 	} catch (e) {
 		hint("dirHint", e.message, "bad");
 	} finally {
@@ -167,41 +282,228 @@ $("pick").onclick = async () => {
 	}
 };
 
-$("dir").addEventListener("change", inspeccionar);
+$("dir").addEventListener("change", () => { ocultar(); inspeccionar(); });
 $("dir").addEventListener("keydown", (e) => { if (e.key === "Enter") inspeccionar(); });
 $("url").addEventListener("input", () => { urlAuto = false; refrescar(); });
-$("url").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("send").disabled) enviar(); });
-$("send").onclick = enviar;
+$("url").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("send").disabled) subir(); });
+$("send").onclick = subir;
 
-async function enviar() {
-	const dir = $("dir").value.trim(), url = $("url").value.trim();
+// ─── apus-guard ─────────────────────────────────────────────────────────
+
+function hallazgo(f) {
+	return el("li", null,
+		el("div", { className: "top" },
+			el("span", { className: "badge " + f.severity, textContent: f.severity === "critical" ? "Crítico" : "Aviso" }),
+			el("span", { className: "where", textContent: f.file + ":" + f.line })),
+		el("div", { className: "title", textContent: f.title + (f.key ? " · " + f.key : "") }),
+		el("pre", { textContent: f.snippet }),
+		el("div", { className: "fix" }, ...rich(f.fix)));
+}
+
+// mostrarGuard muestra lo que encontró apus-guard. blocked es cuando ya frenó
+// una subida; si no, es el aviso previo, antes de tocar Subir.
+function mostrarGuard(findings, blocked, extra) {
+	const box = $("guard");
+	if (!findings.length) { box.hidden = true; box.replaceChildren(); return; }
+	const crit = findings.filter((f) => f.severity === "critical").length;
+	const warn = findings.length - crit;
+	box.className = "panel " + (crit ? "crit" : "warn");
+	const title = blocked ? "apus-guard frenó la subida"
+		: crit ? "apus-guard no va a dejar subir esto" : "apus-guard encontró algo para revisar";
+	const counts = [crit && plural(crit, "secreto crítico", "secretos críticos"), warn && plural(warn, "aviso", "avisos")].filter(Boolean).join(" y ");
+	const detail = crit
+		? counts + (blocked ? ". No subí nada: sacalos del código y volvé a tocar Subir." : ". Sacalos del código antes de subir.")
+		: counts + ". No frena la subida.";
+	box.replaceChildren(el("h2", { textContent: title }), el("p", { textContent: detail }), ...(extra || []),
+		el("ul", { className: "findings" }, ...findings.map(hallazgo)));
+	box.hidden = false;
+}
+
+// ─── el resultado ───────────────────────────────────────────────────────
+
+function ocultar() { $("st").hidden = true; $("st").replaceChildren(); }
+
+// Los mensajes del servidor vienen en minúscula, como en la terminal; en un
+// título va la mayúscula (salvo "apus", que siempre va así).
+const titulo = (t) => (/^apus/.test(t) ? t : t.charAt(0).toUpperCase() + t.slice(1));
+
+function panel(kind, title, text, ...rest) {
 	const st = $("st");
+	st.className = "panel " + kind;
+	st.replaceChildren(el("h2", { textContent: titulo(title) }), text ? el("p", null, ...rich(text)) : null, ...rest);
+	st.hidden = false;
+	refrescar();
+}
+
+const acciones = (...buttons) => el("div", { className: "actions" }, ...buttons);
+const boton = (text, cls, onclick) => el("button", { className: cls || "", textContent: text, onclick });
+
+function lista(files, cls, more) {
+	const items = files.map((f) => el("li", { className: cls(f), textContent: f }));
+	if (more) items.push(el("li", { textContent: "y " + plural(more, "archivo más", "archivos más") }));
+	return el("ul", { className: "files" }, ...items);
+}
+
+// GitHub rechazó el push porque tiene commits que la carpeta no tiene.
+function mostrarDivergencia(r, d) {
+	const clash = new Set(d.conflicts || []);
+	const origen = d.unrelated
+		? "El repo de GitHub se creó con archivos propios (README, licencia, .gitignore…)."
+		: "En GitHub hay " + plural(d.behind, "commit", "commits") + " que tu carpeta no tiene.";
+
+	if (!clash.size) {
+		panel("warn", r.error, origen + " No chocan con los tuyos: se traen y se sube todo.",
+			el("p", { textContent: "Trae estos archivos:" }),
+			lista(d.incoming || [], () => "", d.more),
+			acciones(boton("Traer y continuar", "primary", () => resolver("pull"))));
+		return;
+	}
+	const aviso = el("div", { className: "caution", hidden: true },
+		el("b", { textContent: "Esto borra de GitHub lo que tu carpeta no tiene. " }),
+		"Se pierden " + plural(d.behind, "commit", "commits") + " de GitHub, con sus cambios en " +
+		plural((d.incoming || []).length + (d.more || 0), "archivo", "archivos") + ". Desde apus no se puede deshacer.",
+		acciones(boton("Sí, sobrescribir GitHub", "danger solid", () => resolver("force", d.lease)),
+			boton("No", "", () => { aviso.hidden = true; })));
+	panel("warn", r.error, origen + " Estos archivos cambiaron en los dos lados y chocan:",
+		lista([...clash], () => "clash"),
+		el("p", { textContent: "Traer los cambios los junta con los tuyos; donde choquen, vas a elegir qué queda." }),
+		acciones(
+			boton("Traer cambios remotos (rebase)", "primary", () => resolver("rebase")),
+			boton("Sobrescribir remoto (force push)…", "danger", () => { aviso.hidden = false; })),
+		aviso);
+}
+
+// La carpeta quedó a mitad de traer cambios, con conflictos por resolver.
+function mostrarPendiente(d) {
+	const marcas = new Set(d.markers || []);
+	const files = d.conflicts || [];
+	const text = files.length
+		? "Abrí estos archivos en tu editor, elegí qué queda en cada parte marcada con `<<<<<<<` y `>>>>>>>`, borrá las marcas y guardá. Después tocá Continuar."
+		: "Quedaste a mitad de traer los cambios de GitHub.";
+	panel("crit", files.length ? "Quedan archivos por resolver" : "Falta terminar de traer los cambios", text,
+		files.length ? lista(files, (f) => (marcas.has(f) ? "clash" : "done")) : null,
+		files.length ? el("p", { textContent: marcas.size ? plural(marcas.size, "archivo tiene", "archivos tienen") + " marcas todavía." : "Ya no quedan marcas: podés continuar." }) : null,
+		acciones(boton("Continuar", "primary", () => resolver("continue")),
+			boton("Cancelar y dejar todo como estaba", "", () => resolver("abort"))));
+}
+
+function mostrarResultado(r) {
+	const res = r.result || {};
+	if (!r.error) {
+		const warn = (res.findings || []).length;
+		const notes = [res.pushed ? res.summary : "", res.note, warn ? plural(warn, "aviso", "avisos") + " de apus-guard, arriba" : ""].filter(Boolean);
+		panel("ok", res.pushed ? "Subido" : (res.summary || "Listo"), notes.join(" · "),
+			res.url ? el("p", null, el("a", { href: res.url, target: "_blank", rel: "noopener", textContent: "Ver en GitHub →" })) : null);
+		return;
+	}
+	switch (r.reason) {
+	case "secrets": {
+		ocultar();
+		const extra = [];
+		const issues = res.issues || [];
+		if (issues.length) {
+			extra.push(el("p", null, "Issues en GitHub: ", ...issues.flatMap((is, i) => [
+				i ? ", " : "", el("a", { href: is.url, target: "_blank", rel: "noopener", textContent: "#" + is.number + (is.new ? " (nuevo)" : "") })])));
+		}
+		if (res.note) extra.push(el("p", { textContent: res.note }));
+		mostrarGuard(res.findings || [], true, extra);
+		return;
+	}
+	case "diverged":
+		if (res.divergence) return mostrarDivergencia(r, res.divergence);
+		break;
+	case "conflicts":
+		if (res.divergence) return mostrarPendiente(res.divergence);
+		break;
+	}
+	panel("crit", r.error, r.hint || "");
+}
+
+async function correr(path, body) {
 	busy = true;
 	refrescar();
-	$("send").textContent = "Subiendo…";
-	st.className = ""; st.textContent = "";
+	const send = $("send");
+	send.replaceChildren(el("span", { className: "spin" }), "Subiendo…");
 	try {
-		const r = await api("/api/send", { dir, url });
-		if (r.error) {
-			st.className = "bad";
-			st.textContent = "✖ " + r.error;
-			if (r.hint) st.append(Object.assign(document.createElement("small"), { textContent: r.hint }));
-		} else {
-			st.className = "ok";
-			st.textContent = "✔ " + ((r.result && r.result.pushed) ? "subido: " : "") + (r.result.summary || "listo");
-			if (r.result.note) st.append(Object.assign(document.createElement("small"), { textContent: r.result.note }));
-			guardado.set("dir", dir);
-		}
+		const r = await api(path, body);
 		aplicar(r.inspect);
+		if (!r.error) guardado.set("dir", body.dir);
+		mostrarResultado(r);
 	} catch (e) {
-		st.className = "bad";
-		st.textContent = "✖ " + e.message;
+		panel("crit", e.message, "");
 	} finally {
 		busy = false;
-		$("send").textContent = "Subir";
+		send.textContent = "Subir";
 		refrescar();
 	}
 }
+
+function subir() {
+	ocultar();
+	correr("/api/send", { dir: $("dir").value.trim(), url: $("url").value.trim() });
+}
+
+function resolver(action, lease) {
+	correr("/api/resolve", { dir: $("dir").value.trim(), action, lease: lease || "" });
+}
+
+// ─── GitHub ─────────────────────────────────────────────────────────────
+
+async function estadoToken() {
+	try {
+		const t = await api("/api/token");
+		$("store").textContent = t.store || "llavero del sistema";
+		$("tokenStatus").textContent = t.configured
+			? "Token guardado" + (t.login ? " · conectado como @" + t.login : "") + "."
+			: "Sin token: apus-guard frena igual, pero no deja issues.";
+		$("deleteToken").hidden = !t.configured;
+	} catch (e) {
+		$("tokenStatus").textContent = e.message;
+	}
+}
+
+$("toggleSettings").onclick = () => {
+	const s = $("settings");
+	s.hidden = !s.hidden;
+	$("toggleSettings").setAttribute("aria-expanded", String(!s.hidden));
+	if (!s.hidden) estadoToken();
+};
+
+$("saveToken").onclick = async () => {
+	const token = $("token").value.trim();
+	if (!token) return;
+	$("saveToken").disabled = true;
+	$("tokenStatus").textContent = "Probando el token con GitHub…";
+	try {
+		await api("/api/token", { token });
+		$("token").value = "";
+		await estadoToken();
+	} catch (e) {
+		$("tokenStatus").textContent = e.message;
+	} finally {
+		$("saveToken").disabled = false;
+	}
+};
+$("token").addEventListener("keydown", (e) => { if (e.key === "Enter") $("saveToken").click(); });
+
+$("deleteToken").onclick = async () => {
+	try { await api("/api/token", null, "DELETE"); } catch (e) { /* se ve en el estado */ }
+	estadoToken();
+};
+
+$("addWorkflow").onclick = async () => {
+	const msg = $("workflowMsg");
+	msg.hidden = false;
+	try {
+		const r = await api("/api/workflow", { dir: $("dir").value.trim() });
+		msg.replaceChildren(...rich("Listo: `" + r.path + "`. Se sube con el próximo Subir. Para que bloquee el merge, en GitHub pedí el check `apus-guard / guard` en la protección de la rama."));
+		aplicar(r.inspect);
+	} catch (e) {
+		msg.textContent = e.message;
+	}
+};
+
+// ─── arranque ───────────────────────────────────────────────────────────
 
 // La última carpeta que subiste queda puesta para la próxima.
 const ultima = guardado.get("dir");
