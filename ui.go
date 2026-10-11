@@ -155,6 +155,7 @@ func cmdUI(args []string) int {
 		mux.HandleFunc("/api/resolve", srv.guard(srv.apiResolve))
 		mux.HandleFunc("/api/token", srv.guard(srv.apiToken))
 		mux.HandleFunc("/api/workflow", srv.guard(srv.apiWorkflow))
+		mux.HandleFunc("/api/aerodramus", srv.guard(srv.apiAerodramus))
 	})
 }
 

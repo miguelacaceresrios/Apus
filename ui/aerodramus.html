@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f6f3ed" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1917" media="(prefers-color-scheme: dark)">
+<title>Aerodramus</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+/* Aerodramus es de la misma familia que apus: los mismos colores del vencejo. */
+:root {
+	color-scheme: light dark;
+	--bg: #f6f3ed;
+	--surface: #fffdf9;
+	--line: #e2dacd;
+	--line-strong: #cfc5b5;
+	--ink: #2a2320;
+	--dim: #6f675e;
+	--primary: #2a2320;
+	--on-primary: #f6f3ed;
+	--ring: rgba(42, 35, 32, .16);
+	--crit: #b3261e;
+	--crit-bg: #fbeeec;
+	--warn: #8f6200;
+	--warn-bg: #fbf3e2;
+	--ok: #2e7d4f;
+	--ok-bg: #edf6f0;
+	--info-bg: #f1ede6;
+	--mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #1c1917;
+		--surface: #24201e;
+		--line: #37312d;
+		--line-strong: #4a423d;
+		--ink: #efe9e1;
+		--dim: #a09789;
+		--primary: #ebe3d6;
+		--on-primary: #1c1917;
+		--ring: rgba(235, 227, 214, .2);
+		--crit: #f2877b;
+		--crit-bg: #33201d;
+		--warn: #e5b95c;
+		--warn-bg: #30271a;
+		--ok: #86c7a0;
+		--ok-bg: #1d2a22;
+		--info-bg: #2a2522;
+	}
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+	margin: 0; padding: 28px 28px 40px;
+	font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+	color: var(--ink); background: var(--bg);
+	-webkit-font-smoothing: antialiased;
+}
+main { max-width: 760px; margin: 0 auto; }
+[hidden] { display: none !important; }
+
+header { margin-bottom: 20px; }
+h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+header p { margin: 2px 0 0; font-size: 13px; color: var(--dim); }
+
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 18px; padding: 3px; border-radius: 10px; background: var(--info-bg); width: fit-content; }
+.tabs button { height: 32px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--dim); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.tabs .n { margin-left: 6px; font-weight: 500; opacity: .75; }
+
+.repo { margin-bottom: 26px; }
+.repo-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.repo-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+.repo-head .path { font: 12px var(--mono); color: var(--dim); overflow-wrap: anywhere; }
+.repo-head a { font-size: 12.5px; color: var(--dim); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+.repo-head a:hover { color: var(--ink); border-color: var(--ink); }
+.gone { font-size: 12px; color: var(--warn); }
+
+.item {
+	margin-top: 10px; padding: 14px 16px; border-radius: 10px;
+	background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line-strong);
+	overflow-wrap: anywhere;
+}
+.item.critical { border-left-color: var(--crit); }
+.item.warning { border-left-color: var(--warn); }
+.item.resolved, .item.ignored { border-left-color: var(--line-strong); }
+.item.resolved .body, .item.ignored .body { opacity: .7; }
+.top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.badge { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; }
+.badge.critical { color: var(--crit); background: var(--crit-bg); }
+.badge.warning { color: var(--warn); background: var(--warn-bg); }
+.state { font-size: 12px; color: var(--dim); }
+.state.resolved { color: var(--ok); }
+.where { font: 12px var(--mono); color: var(--dim); }
+.title { font-weight: 600; font-size: 13.5px; margin-top: 4px; }
+pre { margin: 7px 0 0; padding: 7px 9px; border-radius: 6px; background: var(--info-bg); font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.fix { margin-top: 7px; font-size: 12.5px; color: var(--dim); }
+code { font-family: var(--mono); font-size: 12px; }
+.fix code { padding: 1px 4px; border-radius: 4px; background: var(--info-bg); }
+.meta { margin-top: 8px; font-size: 12px; color: var(--dim); }
+.meta a { color: var(--dim); font-weight: 600; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+button.b {
+	font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; border-radius: 8px; height: 34px; padding: 0 13px;
+	border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+	transition: border-color .12s, opacity .12s;
+}
+button.b:hover:not(:disabled) { border-color: var(--ink); }
+button.b:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+button.b:disabled { opacity: .45; cursor: default; }
+button.b.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+button.b.primary:hover:not(:disabled) { opacity: .9; }
+button.b.quiet { border-color: transparent; background: none; color: var(--dim); padding: 0 6px; }
+button.b.quiet:hover:not(:disabled) { color: var(--ink); border-color: transparent; }
+button.b.danger { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 45%, transparent); background: transparent; }
+.feedback { font-size: 12.5px; color: var(--dim); }
+.feedback.bad { color: var(--crit); }
+
+.confirm { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); font-size: 13px; }
+.confirm b { color: var(--warn); }
+
+.empty { padding: 48px 0; text-align: center; color: var(--dim); }
+.empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+footer { margin-top: 28px; font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+footer code { font-size: 11.5px; }
+#error { margin-bottom: 16px; color: var(--crit); }
+</style>
+</head>
+<body>
+<main>
+	<header>
+		<h1>Aerodramus</h1>
+		<p>Los hallazgos de apus-guard en esta máquina. No frena nada: te ayuda a ordenarlos.</p>
+	</header>
+
+	<div class="tabs" role="group" aria-label="Filtrar por estado">
+		<button data-f="pending" aria-pressed="true">Pendientes<span class="n" id="n-pending"></span></button>
+		<button data-f="ignored" aria-pressed="false">Ignorados<span class="n" id="n-ignored"></span></button>
+		<button data-f="resolved" aria-pressed="false">Resueltos<span class="n" id="n-resolved"></span></button>
+		<button data-f="all" aria-pressed="false">Todos<span class="n" id="n-all"></span></button>
+	</div>
+
+	<div id="error" hidden></div>
+	<div id="list"></div>
+
+	<footer id="footer"></footer>
+</main>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, props, ...kids) => {
+	const e = Object.assign(document.createElement(tag), props || {});
+	e.append(...kids.filter((k) => k !== null && k !== undefined && k !== false));
+	return e;
+};
+const api = async (path, body) => {
+	const res = await fetch(path, {
+		method: body ? "POST" : "GET",
+		headers: { "X-Apus": "1", "Content-Type": "application/json" },
+		body: body ? JSON.stringify(body) : undefined,
+	});
+	const data = res.status === 204 ? {} : await res.json().catch(() => null);
+	if (!res.ok) throw new Error((data && data.error) || res.statusText);
+	return data;
+};
+
+// Los textos con `código` se muestran con el código marcado, sin innerHTML.
+const rich = (text) => String(text || "").split("`").map((part, i) => (i % 2 ? el("code", { textContent: part }) : part));
+const plural = (n, uno, varios) => n + " " + (n === 1 ? uno : varios);
+
+const STATE = { pending: "Pendiente", resolved: "Resuelto", ignored: "Ignorado" };
+let filter = "pending";
+let data = { repos: [], counts: {} };
+
+function cuando(iso) {
+	if (!iso) return "";
+	const d = new Date(iso);
+	return d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+// ─── acciones ───────────────────────────────────────────────────────────
+
+async function estado(repo, e, status, fb) {
+	try {
+		await api("/api/status", { repo, id: e.id, status });
+		await cargar();
+	} catch (err) {
+		fb.className = "feedback bad";
+		fb.textContent = err.message;
+	}
+}
+
+async function abrir(repo, e, fb) {
+	fb.className = "feedback";
+	fb.textContent = "Abriendo…";
+	try {
+		const r = await api("/api/open", { repo, id: e.id });
+		fb.textContent = r.how.charAt(0).toUpperCase() + r.how.slice(1);
+	} catch (err) {
+		fb.className = "feedback bad";
+		fb.textContent = err.message;
+	}
+}
+
+async function copiar(e, fb) {
+	// El arreglo sin las marcas de código: listo para pegar.
+	const text = e.fix.replaceAll("`", "");
+	try {
+		await navigator.clipboard.writeText(text);
+	} catch {
+		const t = el("textarea", { value: text });
+		document.body.append(t);
+		t.select();
+		document.execCommand("copy");
+		t.remove();
+	}
+	fb.className = "feedback";
+	fb.textContent = "Arreglo copiado";
+}
+
+const boton = (text, cls, onclick) => el("button", { className: "b " + (cls || ""), textContent: text, onclick });
+
+// ─── lista ──────────────────────────────────────────────────────────────
+
+function hallazgo(repo, e) {
+	const fb = el("span", { className: "feedback" });
+	const actions = el("div", { className: "actions" });
+	const confirmar = el("div", { className: "confirm", hidden: true },
+		el("b", { textContent: "¿Es un falso positivo? " }),
+		e.severity === "critical"
+			? "apus-guard va a dejar de frenar la subida por esto. Si es un secreto de verdad, sacalo del código en vez de ignorarlo."
+			: "apus-guard va a dejar de avisarlo.",
+		el("div", { className: "actions" },
+			boton("Sí, ignorar", "danger", () => estado(repo, e, "ignored", fb)),
+			boton("No", "", () => { confirmar.hidden = true; })));
+
+	actions.append(boton("Abrir en el editor", "primary", () => abrir(repo, e, fb)), boton("Copiar arreglo", "", () => copiar(e, fb)));
+	if (e.status === "pending") {
+		actions.append(boton("Marcar resuelto", "", () => estado(repo, e, "resolved", fb)),
+			boton("Ignorar…", "quiet", () => { confirmar.hidden = false; }));
+	} else {
+		actions.append(boton("Volver a pendiente", "quiet", () => estado(repo, e, "pending", fb)));
+	}
+	actions.append(fb);
+
+	const meta = [
+		(e.status === "pending" ? "Visto por primera vez " + cuando(e.firstSeen) : STATE[e.status] + " " + cuando(e.changed)) +
+			(e.auto ? " (apus-guard ya no lo encontró)" : ""),
+		"última revisión " + cuando(e.lastSeen),
+	].join(" · ");
+
+	return el("div", { className: "item " + (e.status === "pending" ? e.severity : e.status) },
+		el("div", { className: "body" },
+			el("div", { className: "top" },
+				el("span", { className: "badge " + e.severity, textContent: e.severity === "critical" ? "Crítico" : "Aviso" }),
+				el("span", { className: "where", textContent: e.file + ":" + e.line }),
+				e.status !== "pending" ? el("span", { className: "state " + e.status, textContent: STATE[e.status] }) : null),
+			el("div", { className: "title", textContent: e.title + (e.key ? " · " + e.key : "") }),
+			el("pre", { textContent: e.snippet }),
+			el("div", { className: "fix" }, ...rich(e.fix)),
+			el("div", { className: "meta" }, meta,
+				e.issue ? el("span", null, " · ", el("a", { href: e.issue, target: "_blank", rel: "noopener", textContent: "issue en GitHub" })) : null)),
+		actions, confirmar);
+}
+
+function pintar() {
+	const list = $("list");
+	const c = data.counts || {};
+	const total = (c.pending || 0) + (c.resolved || 0) + (c.ignored || 0);
+	$("n-pending").textContent = c.pending || 0;
+	$("n-ignored").textContent = c.ignored || 0;
+	$("n-resolved").textContent = c.resolved || 0;
+	$("n-all").textContent = total;
+	document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.f === filter)));
+
+	const repos = data.repos
+		.map((r) => ({ ...r, entries: r.entries.filter((e) => filter === "all" || e.status === filter) }))
+		.filter((r) => r.entries.length);
+
+	if (!repos.length) {
+		const vacio = {
+			pending: ["Nada pendiente", total ? "Todo lo que encontró apus-guard ya está resuelto o ignorado." : "Cuando apus-guard encuentre algo al subir, aparece acá."],
+			ignored: ["No ignoraste nada", "Lo que marques como ignorado deja de frenar la subida y aparece acá."],
+			resolved: ["Nada resuelto todavía", "Cuando saques un secreto del código, apus-guard lo da por resuelto la próxima vez que revise."],
+			all: ["Sin hallazgos", "Cuando apus-guard encuentre algo al subir, aparece acá."],
+		}[filter];
+		list.replaceChildren(el("div", { className: "empty" }, el("b", { textContent: vacio[0] }), vacio[1]));
+		return;
+	}
+	list.replaceChildren(...repos.map((r) => el("section", { className: "repo" },
+		el("div", { className: "repo-head" },
+			el("h2", { textContent: r.name }),
+			el("span", { className: "path", textContent: r.path }),
+			r.remote ? el("a", { href: r.remote, target: "_blank", rel: "noopener", textContent: "GitHub" }) : null,
+			r.exists ? null : el("span", { className: "gone", textContent: "la carpeta ya no está" })),
+		...r.entries.map((e) => hallazgo(r.path, e)))));
+}
+
+async function cargar() {
+	try {
+		data = await api("/api/findings");
+		$("error").hidden = true;
+		$("footer").replaceChildren("El log está en ", el("code", { textContent: data.log }), ". Nunca guarda el secreto: solo el valor y la línea tapados.");
+	} catch (e) {
+		$("error").textContent = e.message;
+		$("error").hidden = false;
+	}
+	pintar();
+}
+
+document.querySelectorAll(".tabs button").forEach((b) => {
+	b.onclick = () => { filter = b.dataset.f; pintar(); };
+});
+
+cargar();
+// apus-guard puede anotar cosas mientras esto está abierto: se relee al volver.
+addEventListener("focus", cargar);
+setInterval(() => { if (document.visibilityState === "visible") cargar(); }, 15000);
+setInterval(() => api("/api/ping").catch(() => {}), 60000);
+addEventListener("pagehide", () => { try { navigator.sendBeacon("/api/bye"); } catch (e) { /* da igual */ } });
+</script>
+</body>
+</html>

@@ -100,6 +100,8 @@ USO
   apus guard [--json] [CARPETA]       busca secretos en lo que se subiría (apus-guard)
   apus guard init [CARPETA]           agrega el chequeo de PR de GitHub Actions al repo
   apus guard --pr                     (en GitHub Actions) revisa el PR y comenta
+  apus aerodramus                     abre Aerodramus: los hallazgos de apus-guard
+                                      de esta máquina, para revisarlos
 
 OPCIONES
   -m, --message <msg>   Mensaje de commit (igual que el argumento posicional).
@@ -151,6 +153,10 @@ func main() {
 }
 
 func run(args []string) int {
+	// aerodramus.exe es el mismo binario con otro nombre: arranca Aerodramus.
+	if isAerodramus() {
+		return cmdAerodramus(args)
+	}
 	// apusw.exe con doble clic, sin argumentos: abre la ventana.
 	if guiMode() && len(args) == 0 {
 		args = []string{"ui"}
@@ -163,6 +169,8 @@ func run(args []string) int {
 			return cmdStatus(args[1:])
 		case "guard":
 			return cmdGuard(args[1:])
+		case "aerodramus":
+			return cmdAerodramus(args[1:])
 		case "help":
 			printUsage()
 			return codeOK
