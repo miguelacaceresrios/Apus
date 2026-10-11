@@ -1,13 +1,14 @@
 ﻿# Compila apus para Windows en dist/.
 #
-#   .\scripts\build.ps1          # compila
-#   .\scripts\build.ps1 -Test    # compila y corre todas las pruebas
+#   .\scripts\build.ps1            # compila
+#   .\scripts\build.ps1 -Test      # compila y corre todas las pruebas
+#   .\scripts\build.ps1 -Install   # compila e instala esta versión (menú Inicio, escritorio y PATH)
 #
 # Deja dos binarios del mismo código:
 #   dist\apus.exe    para la terminal
-#   dist\apusw.exe   la ventana: sin consola, para el atajo del escritorio
+#   dist\apusw.exe   la ventana: sin consola, la del menú Inicio y el escritorio
 
-param([switch]$Test)
+param([switch]$Test, [switch]$Install)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -36,6 +37,13 @@ try {
 		$env:APUS_IMPL = "go"
 		try { Invoke-Checked "scripts/test.sh (go)" { bash scripts/test.sh } }
 		finally { Remove-Item Env:APUS_IMPL }
+	}
+
+	if ($Install) {
+		# apus cuenta lo que hace por stderr: con Stop, PowerShell 5.1 lo tomaría
+		# por un error si la salida está redirigida.
+		$ErrorActionPreference = "Continue"
+		Invoke-Checked "apus install" { & dist/apus.exe install }
 	}
 }
 finally {

@@ -22,8 +22,13 @@ var (
 )
 
 const (
-	createNoWindow = 0x08000000 // CREATE_NO_WINDOW
-	mbIconError    = 0x00000010 // MB_ICONERROR
+	createNoWindow  = 0x08000000 // CREATE_NO_WINDOW
+	mbYesNo         = 0x00000004 // MB_YESNO
+	mbIconError     = 0x00000010 // MB_ICONERROR
+	mbIconQuestion  = 0x00000020 // MB_ICONQUESTION
+	mbIconInfo      = 0x00000040 // MB_ICONINFORMATION
+	mbSetForeground = 0x00010000 // MB_SETFOREGROUND
+	idYes           = 6
 )
 
 // guiMode dice si este es el binario de ventana (apusw.exe). Se decide por cómo
@@ -64,10 +69,21 @@ func noConsole(cmd *exec.Cmd) {
 	}
 }
 
-// alert muestra un error en una ventana del sistema: el binario de ventana no
-// tiene terminal donde imprimirlo.
-func alert(title, text string) {
+func messageBox(title, text string, flags uintptr) uintptr {
 	t, _ := syscall.UTF16PtrFromString(title)
 	m, _ := syscall.UTF16PtrFromString(text)
-	messageBoxW.Call(0, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(t)), mbIconError)
+	r, _, _ := messageBoxW.Call(0, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(t)), flags|mbSetForeground)
+	return r
+}
+
+// alert muestra un error en una ventana del sistema: el binario de ventana no
+// tiene terminal donde imprimirlo.
+func alert(title, text string) { messageBox(title, text, mbIconError) }
+
+// notify avisa algo que salió bien.
+func notify(title, text string) { messageBox(title, text, mbIconInfo) }
+
+// askYesNo hace una pregunta con Sí y No.
+func askYesNo(title, text string) bool {
+	return messageBox(title, text, mbYesNo|mbIconQuestion) == idYes
 }

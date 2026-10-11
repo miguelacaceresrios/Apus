@@ -62,3 +62,48 @@ func TestNoConsoleSigueALaConsolaDelProceso(t *testing.T) {
 		t.Fatalf("git no arrancó con esa configuración: %v\n%s", err, out)
 	}
 }
+
+// El instalador saca apus.exe y apusw.exe de un solo binario, cambiando el
+// subsistema: la copia tiene que quedar del tipo pedido y seguir arrancando.
+func TestCopyWithSubsystem(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(src, []byte("package main\nimport \"os\"\nfunc main() { os.Exit(7) }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := filepath.Join(dir, "orig.exe")
+	cmd := exec.Command("go", "build", "-o", orig, src)
+	cmd.Env = append(os.Environ(), "GO111MODULE=off")
+	if msg, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("no pude compilar: %v\n%s", err, msg)
+	}
+
+	gui := filepath.Join(dir, "gui.exe")
+	if err := copyWithSubsystem(orig, gui, subsystemGUI); err != nil {
+		t.Fatal(err)
+	}
+	if !isGUIBinary(gui) {
+		t.Fatal("la copia de ventana quedó de consola")
+	}
+	back := filepath.Join(dir, "back.exe")
+	if err := copyWithSubsystem(gui, back, subsystemConsole); err != nil {
+		t.Fatal(err)
+	}
+	if isGUIBinary(back) {
+		t.Fatal("la copia de consola quedó de ventana")
+	}
+	for _, exe := range []string{gui, back} {
+		err := exec.Command(exe).Run()
+		if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 7 {
+			t.Fatalf("%s no arrancó bien: %v", filepath.Base(exe), err)
+		}
+	}
+
+	// Pisar un binario existente también anda (y deja el viejo aparte).
+	if err := copyWithSubsystem(orig, gui, subsystemGUI); err != nil {
+		t.Fatalf("no pude reemplazar un binario existente: %v", err)
+	}
+	if err := copyWithSubsystem(src, filepath.Join(dir, "x.exe"), subsystemGUI); err == nil {
+		t.Fatal("un archivo que no es ejecutable no se tendría que copiar")
+	}
+}
