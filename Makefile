@@ -25,9 +25,11 @@ test: build
 	scripts/test.sh
 	APUS_IMPL=go scripts/test.sh
 
-## icons: regenera assets/apus.ico y assets/apus.png
+## icons: regenera assets/apus.ico y assets/apus.png desde assets/apus.svg, y el
+## ícono y la versión de los .exe (rsrc_windows_*.syso; baja go-winres la primera vez)
 icons:
 	$(GO) run ./tools/icongen
+	$(GO) run github.com/tc-hib/go-winres@v0.3.3 simply --icon assets/apus.ico --arch amd64,arm64 		--manifest gui --product-name apus --file-description "apus: tu carpeta a GitHub en un paso" 		--product-version git-tag --file-version git-tag --original-filename apus.exe --out rsrc
 
 clean:
 	rm -rf dist
