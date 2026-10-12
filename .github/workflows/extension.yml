@@ -1,12 +1,19 @@
-name: ci
+name: extension
 
+# La extensión de VS Code (extension/): corre cuando cambia algo adentro.
 on:
   push:
+    paths: ['extension/**', '.github/workflows/extension.yml']
   pull_request:
+    paths: ['extension/**', '.github/workflows/extension.yml']
 
 # Las pruebas solo leen el repo: el token de Actions no necesita más.
 permissions:
   contents: read
+
+defaults:
+  run:
+    working-directory: extension
 
 jobs:
   test:
@@ -22,6 +29,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: extension/package-lock.json
 
       - run: npm ci
 
@@ -63,6 +71,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: extension/package-lock.json
 
       - run: npm ci
 
@@ -86,8 +95,8 @@ jobs:
       - name: VS Code en caché
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .vscode-test
-          key: vscode-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          path: extension/.vscode-test
+          key: vscode-${{ runner.os }}-${{ hashFiles('extension/package-lock.json') }}
 
       - name: compilar
         run: npm run compile

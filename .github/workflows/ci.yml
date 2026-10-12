@@ -1,8 +1,11 @@
 name: ci
 
+# apus, el binario en Go. Lo de extension/ tiene su propio workflow.
 on:
   push:
+    paths-ignore: ['extension/**', '.github/workflows/extension.yml']
   pull_request:
+    paths-ignore: ['extension/**', '.github/workflows/extension.yml']
 
 # Las pruebas solo leen el repo: el token de Actions no necesita más.
 permissions:
