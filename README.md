@@ -12,6 +12,8 @@
 
 Corre en Windows, Linux y macOS. Es un solo binario, sin dependencias más allá de `git`.
 
+En este repo también vive [**Apus affinis**](extension/), la extensión de VS Code que usa apus para subir sola cuando dejás de tocar el repo.
+
 ## La ventana
 
 <p align="center">
@@ -213,6 +215,7 @@ apus/
 ├── ui/aerodramus.html    Aerodramus
 ├── assets/               el logo (apus.svg) y los íconos que salen de él
 ├── docs/                 imágenes del README
+├── extension/            Apus affinis, la extensión de VS Code (TypeScript)
 ├── scripts/
 │   ├── install.ps1       instalador de una línea para Windows
 │   ├── install.sh        instalador de una línea para Linux y macOS
