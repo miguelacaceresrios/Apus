@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/apus.png" width="72" alt="apus">
+  <img src="assets/apus.png" width="96" alt="apus">
 </p>
 
 <h1 align="center">apus</h1>
 
-<p align="center">Elegís una carpeta, pegás la URL del repo, y se sube todo.</p>
+<p align="center">Tu carpeta a GitHub, en un paso.<br>Elegís una carpeta, pegás la URL del repo, y se sube todo.</p>
 
 ---
 
@@ -26,13 +26,50 @@ Por detrás, apus inicializa el repo si la carpeta no lo era, pone esa URL como 
 
 Tiene estos cuidados:
 
+- Antes de tocar nada pasa **apus-guard**, que busca secretos en lo que se va a subir (ver abajo). Si encuentra uno crítico, no sube nada.
+- Si GitHub rechaza el push porque tiene commits que tu carpeta no tiene (por ejemplo, creaste el repo con README), no te deja con el error de git:
+  - trae lo del remoto y ensaya el merge sin tocar tu carpeta;
+  - si no choca nada, te ofrece **Traer y continuar**, y sube;
+  - si hay archivos que cambiaron en los dos lados, te los muestra y te deja elegir: **Traer cambios remotos (rebase)**, para resolver los choques en tu editor y tocar **Continuar**, o **Sobrescribir remoto (force push)**, con una advertencia aparte. Nunca es lo que pasa por defecto, y solo pisa lo que viste: si GitHub cambió mientras decidías, no pisa nada;
+  - si quedaste a mitad de resolver, al volver a abrir la carpeta te muestra qué falta, con **Continuar** y **Cancelar y dejar todo como estaba**.
 - Si la carpeta apuntaba a otro remoto y pegás una URL distinta, te avisa antes de subir.
 - Si elegís una subcarpeta de otro repo, no sube el repo de afuera.
-- Si el repo de GitHub ya tiene archivos (por ejemplo, lo creaste con README), explica por qué git rechaza el push.
 - Recuerda la última carpeta.
 - Se cierra sola cuando cerrás la ventana.
 
-En Windows la ventana es `apusw.exe`, que no abre terminal: ni la suya ni la de cada `git`. Si algo falla antes de abrir, muestra el error en un cuadro de diálogo.
+En Windows la ventana es `apusw.exe`, que no abre terminal: ni la suya ni la de cada `git`. Si algo falla antes de abrir, muestra el error en un cuadro de diálogo. La ventana sigue el tema claro u oscuro del sistema.
+
+## apus-guard
+
+Revisa lo que "Subir" va a mandar: los archivos nuevos y los que cambiaron desde el último push, sin los que ignora `.gitignore`. Las reglas son fijas y apuntan a .NET y Azure:
+
+| Qué busca | Dónde | Severidad |
+|---|---|---|
+| `Password=` / `Pwd=` en un connection string de SQL Server | `appsettings*.json` | crítico |
+| `User ID=` en un connection string sin contraseña a la vista | `appsettings*.json` | aviso |
+| `AccountKey=` (Azure Storage), `SharedAccessKey=` (Service Bus, Event Hubs) | appsettings, `.cs`, `.config`, `.yml`, `.env` y otros de texto | crítico |
+| Claves con nombre de secreto (`ApiKey`, `ClientSecret`, `Secret`, `Token`, `Password`) con un valor escrito | `appsettings*.json` | crítico |
+| `ClientId` con un valor escrito | `appsettings*.json` | aviso |
+| Connection strings de SQL Server armados en el código | `.cs` | crítico con contraseña, si no aviso |
+
+- **Cada hallazgo muestra** el archivo, la línea, la severidad, el valor tapado (un prefijo corto y `****`, nunca el secreto entero) y qué hacer: `dotnet user-secrets` con la clave exacta, la variable de entorno equivalente, Azure Key Vault o Managed Identity, según el caso.
+- **No marca relleno:** valores vacíos, `CHANGE_ME`, `<password>`, `${DB_PASSWORD}`, `#{Token}#`, referencias de Key Vault (`@Microsoft.KeyVault(...)`), la clave pública del emulador de Storage, ni connection strings con `Integrated Security` o Managed Identity.
+- **Para ignorar una línea** que no es un secreto, agregale el comentario `apus-guard:ignore`, o marcala como ignorada en [Aerodramus](#aerodramus).
+- Los **avisos** se muestran, pero no frenan la subida.
+
+Desde la terminal: `apus guard` revisa la carpeta actual, y `apus guard --json` devuelve los hallazgos en JSON.
+
+**Issues en GitHub.** En la ventana, tocá **GitHub** y guardá un token con permiso de *Issues* (lectura y escritura). Cuando apus-guard frena una subida a un repo de GitHub, abre un issue por cada hallazgo crítico: archivo, línea, severidad, la línea tapada y qué hacer. Antes de abrirlo se fija si ya hay uno abierto para ese archivo, línea y regla, así no se repite. El token va al llavero del sistema (el Administrador de credenciales en Windows, el Llavero en macOS, Secret Service en Linux): nunca a un archivo, y nunca aparece en la ventana ni en un log.
+
+**Chequeo en los pull requests.** En **GitHub → Agregar a este repo** (o `apus guard init`), apus deja `.github/workflows/apus-guard.yml` en la carpeta. En cada PR baja la misma versión de apus, verifica su SHA-256 y corre las mismas reglas sobre las líneas que agrega el PR. Comenta cada hallazgo en su línea, como comentario de revisión, y falla el check si hay algo crítico. Para que eso bloquee el merge, pedí el check `apus-guard / guard` en la protección de la rama.
+
+## Aerodramus
+
+Cada vez que apus-guard revisa una carpeta, anota lo que encontró en un log de esta máquina, fuera de los repos: `%LOCALAPPDATA%\apus\guard-log.json` en Windows, `~/.local/state/apus/guard-log.json` en Linux y `~/Library/Application Support/apus/guard-log.json` en macOS. Como la ventana, guarda el valor tapado, nunca el secreto.
+
+**Aerodramus** es la ventana para revisar ese log: los hallazgos de todos tus repos, agrupados por repo, con su severidad y su estado (pendiente, resuelto o ignorado). Por cada uno podés abrir el archivo en la línea exacta (en VS Code, si está instalado), copiar el arreglo, marcarlo resuelto o ignorarlo. Lo ignorado deja de frenar la subida, y lo que sacás del código se da por resuelto la próxima vez que apus-guard revisa ese archivo.
+
+Se abre desde el menú Inicio (o el de aplicaciones en Linux) o con `apus aerodramus`. No frena nada ni se conecta a ningún lado: solo lee y escribe el log.
 
 ## La terminal
 
@@ -44,6 +81,9 @@ apus "fix: arreglo bug X"   # con mensaje propio
 apus -n                     # muestra lo que haría, sin hacerlo
 apus status                 # estado de los repos de la carpeta actual
 apus ui                     # abre la ventana
+apus guard                  # busca secretos en lo que se subiría (apus-guard)
+apus aerodramus             # abre Aerodramus, para revisar lo que encontró apus-guard
+apus install                # instala apus para tu usuario (y apus uninstall lo saca)
 ```
 
 | Opción | Qué hace |
@@ -59,70 +99,49 @@ Si la carpeta no es un repo, ofrece iniciarla. Si la rama nunca se publicó, hac
 
 ## Instalación
 
-### Descargar
+### Windows
 
-Cada versión trae los binarios listos en [Releases](https://github.com/miguelacaceresrios/Apus/releases/latest). No hace falta Go.
+Bajá [`apusw.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apusw.exe) y abrilo. Te pregunta si querés instalarlo. Decí que sí y listo:
 
-| Sistema | Terminal | Ventana |
-|---|---|---|
-| Windows x64 | [`apus.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus.exe) | [`apusw.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apusw.exe) |
-| Windows ARM | [`apus-windows-arm64.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-windows-arm64.exe) | [`apusw-windows-arm64.exe`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apusw-windows-arm64.exe) |
-| Linux x64 | [`apus-linux-amd64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-linux-amd64) | la misma, con `apus ui` |
-| Linux ARM | [`apus-linux-arm64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-linux-arm64) | la misma, con `apus ui` |
-| macOS Intel | [`apus-darwin-amd64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-darwin-amd64) | la misma, con `apus ui` |
-| macOS Apple Silicon | [`apus-darwin-arm64`](https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-darwin-arm64) | la misma, con `apus ui` |
+- queda en el menú Inicio y en el escritorio, con su ícono;
+- `apus` funciona en cualquier terminal nueva;
+- se desinstala desde *Configuración → Aplicaciones instaladas*, como cualquier programa.
 
-- **Windows**: poné `apus.exe` en una carpeta del `PATH`. Los binarios no están firmados, así que la primera vez SmartScreen puede frenarlos: *Más información → Ejecutar de todos modos*.
-- **Linux y macOS**:
+No pide permisos de administrador: todo queda en tu usuario, en `%LOCALAPPDATA%\Programs\apus`. Cuando bajes una versión nueva y la abras, te ofrece actualizar la instalada.
 
-  ```bash
-  mkdir -p ~/.local/bin
-  curl -Lo ~/.local/bin/apus https://github.com/miguelacaceresrios/Apus/releases/latest/download/apus-linux-amd64
-  chmod +x ~/.local/bin/apus
-  ```
+Los binarios no están firmados, así que la primera vez SmartScreen puede frenarlo: *Más información → Ejecutar de todos modos*.
 
-  Cambiá `apus-linux-amd64` por el de tu sistema. En macOS, si Gatekeeper lo bloquea: `xattr -d com.apple.quarantine ~/.local/bin/apus`.
-- **Verificar la descarga**: cada release trae `SHA256SUMS.txt`, con la huella de cada archivo. Comparala con la tuya: `Get-FileHash apus.exe` en Windows, `sha256sum ~/.local/bin/apus` en Linux y macOS.
+Si preferís la terminal, esto hace lo mismo sin pasar por SmartScreen:
+
+```powershell
+irm https://raw.githubusercontent.com/miguelacaceresrios/Apus/master/scripts/install.ps1 | iex
+```
+
+### Linux y macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/miguelacaceresrios/Apus/master/scripts/install.sh | sh
+```
+
+Queda en `~/.local/bin/apus` y, en Linux, en el menú de aplicaciones con su ícono. Para sacarlo: `apus uninstall`.
+
+El selector de carpetas usa `zenity` o `kdialog` en Linux, y el nativo en Windows y macOS.
+
+### A mano
+
+Cada versión trae los binarios en [Releases](https://github.com/miguelacaceresrios/Apus/releases/latest), para Windows (x64 y ARM), Linux y macOS (Intel y Apple Silicon). Cualquiera se instala solo con `apus install`, y cada release trae `SHA256SUMS.txt` para verificar la descarga (`Get-FileHash` en Windows, `sha256sum` en Linux y macOS).
 
 ### Compilar
 
 Hace falta [Go 1.25](https://go.dev/dl/).
 
-**Windows**
-
 ```powershell
 git clone https://github.com/miguelacaceresrios/Apus apus
 cd apus
-.\scripts\build.ps1        # deja dist\apus.exe y dist\apusw.exe
-.\scripts\atajo.ps1        # atajo en el escritorio
+.\scripts\build.ps1 -Install    # compila e instala esta versión
 ```
 
-- `dist\apus.exe` es para la terminal: agregá `dist` al `PATH`.
-- `dist\apusw.exe` es la ventana y es lo que abre el atajo.
-- `atajo.ps1 -Repos "D:\proyectos"` hace que el selector arranque en esa carpeta.
-
-**Linux y macOS**
-
-```bash
-git clone https://github.com/miguelacaceresrios/Apus apus && cd apus
-make build                             # dist/apus
-install -Dm755 dist/apus ~/.local/bin/apus
-```
-
-Para un acceso en el menú de Linux, creá `~/.local/share/applications/apus.desktop`:
-
-```ini
-[Desktop Entry]
-Type=Application
-Name=apus
-Comment=Subir una carpeta a su repo
-Exec=apus ui --quit-on-close --dir %h/proyectos
-Icon=/ruta/a/apus/assets/apus.png
-Terminal=false
-Categories=Development;
-```
-
-El selector de carpetas usa `zenity` o `kdialog` en Linux, y el nativo en Windows y macOS.
+En Linux y macOS: `make build && dist/apus install`.
 
 **Solo la versión en Bash**
 
@@ -162,7 +181,7 @@ Variables de entorno, todas opcionales:
 Con `--json`, apus escribe los pasos en stderr como siempre y, al terminar, **una sola línea** en stdout, salga bien o mal:
 
 ```json
-{"apus":"2.2.0","ok":false,"code":3,"reason":"offline",
+{"apus":"2.3.0","ok":false,"code":3,"reason":"offline",
  "summary":"el push falló: main → origin/main",
  "hint":"sin conexión con el remoto: el commit quedó guardado, volvé a correr apus cuando haya conexión",
  "committed":true,"pushed":false,"commit":"a1b2c3d",
@@ -188,16 +207,19 @@ La ventana es una página servida por el mismo binario en `127.0.0.1`. Cada vez 
 
 ```
 apus/
-├── *.go              núcleo, terminal y servidor de la ventana (package main)
-├── ui/index.html     la ventana
-├── assets/           íconos
-├── docs/             imágenes del README
+├── *.go                  núcleo, terminal, ventana, apus-guard, Aerodramus, GitHub e instalador
+├── rsrc_windows_*.syso   ícono y versión de los .exe (los genera make icons)
+├── ui/index.html         la ventana
+├── ui/aerodramus.html    Aerodramus
+├── assets/               el logo (apus.svg) y los íconos que salen de él
+├── docs/                 imágenes del README
 ├── scripts/
-│   ├── apus.sh       versión en Bash
-│   ├── build.ps1     compilación en Windows
-│   ├── atajo.ps1     atajo de escritorio
-│   └── test.sh       pruebas de la terminal
-├── tools/icongen/    genera los íconos
+│   ├── install.ps1       instalador de una línea para Windows
+│   ├── install.sh        instalador de una línea para Linux y macOS
+│   ├── build.ps1         compilación en Windows
+│   ├── apus.sh           versión en Bash
+│   └── test.sh           pruebas de la terminal
+├── tools/icongen/        dibuja los íconos desde apus.svg
 ├── Makefile
 └── CHANGELOG.md
 ```
@@ -210,12 +232,12 @@ make test                    # todo: vet, go test y las dos baterías de la term
 
 En Windows, `.\scripts\build.ps1 -Test`.
 
-- `go test` cubre la ventana: carpeta nueva, repo al día, cambio de URL, carpeta vacía, subcarpeta de otro repo, remoto con archivos, entradas inválidas y la detección del binario de ventana.
+- `go test` cubre la ventana (carpeta nueva, repo al día, cambio de URL, carpeta vacía, subcarpeta de otro repo, entradas inválidas), el push rechazado (traer y continuar, rebase con conflictos, continuar, cancelar, sobrescribir), apus-guard (cada regla, el relleno que no cuenta, que el secreto no se filtre), GitHub contra una API simulada (issues sin duplicar, comentarios de revisión, el workflow), el llavero de Windows, la detección del binario de ventana y la copia que usa el instalador.
 - `scripts/test.sh` son 31 casos de la terminal, que corren contra `apus.sh` y contra el binario (`APUS_IMPL=go`).
 
 Todo corre en carpetas temporales, con un repo local haciendo de GitHub, y sin tocar tu configuración de git. CI corre lo mismo en Linux y Windows.
 
-**Íconos**: `make icons` o `go run ./tools/icongen`. La figura está definida ahí y en el `<path>` de `ui/index.html`; si cambia una, cambiá la otra.
+**Íconos**: el logo es `assets/apus.svg`. `make icons` (o `go run ./tools/icongen`) lo dibuja sobre el cuadrado crema y deja `apus.ico` y `apus.png` (y los de Aerodramus, en tonos oscuros), y vuelve a generar los `.syso` con el ícono de los `.exe`. La ventana usa `apus.png`, que va adentro del binario.
 
 Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md).
 
