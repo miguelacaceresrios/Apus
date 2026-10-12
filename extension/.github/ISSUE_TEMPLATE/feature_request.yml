@@ -1,0 +1,26 @@
+name: Idea
+description: Something the extension could do, or do better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Se puede escribir en español.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The situation, and what gets in the way today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine it working. Rough is fine.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead now

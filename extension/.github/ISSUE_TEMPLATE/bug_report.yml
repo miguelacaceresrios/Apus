@@ -1,0 +1,57 @@
+name: Bug report
+description: Something doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. For a security problem, please don't use this form: see [SECURITY.md](https://github.com/miguelacaceresrios/apus-affinis/blob/main/SECURITY.md).
+        Se puede escribir en español.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a folder with…
+        2. Change a file and wait…
+        3. …
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Output
+      description: 'Run **Apus: Show Log** and paste the relevant lines. Remote URLs with a token are already masked, but check before posting.'
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: Extensions view → Apus affinis.
+      placeholder: 0.5.0
+    validations:
+      required: true
+
+  - type: input
+    id: apus
+    attributes:
+      label: apus version
+      description: '`apus --version`, or "not installed".'
+      placeholder: 2.2.0
+
+  - type: input
+    id: vscode
+    attributes:
+      label: VS Code version and OS
+      placeholder: VS Code 1.105, Windows 11
+    validations:
+      required: true

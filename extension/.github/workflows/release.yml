@@ -1,0 +1,60 @@
+name: release
+
+# Al subir un tag vX.Y.Z: pruebas, .vsix, Release en GitHub con las notas del
+# CHANGELOG y, si están los tokens, publicación en el Marketplace y en Open VSX.
+#
+#   git tag v0.4.0 && git push origin v0.4.0
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # Secretos del repo (Settings → Secrets and variables → Actions). Sin ellos, ese paso se saltea.
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: el tag coincide con la versión de package.json
+        run: |
+          expected="v$(node -p 'require("./package.json").version')"
+          [ "$GITHUB_REF_NAME" = "$expected" ] || { echo "el tag es $GITHUB_REF_NAME y package.json dice $expected"; exit 1; }
+
+      - name: pruebas
+        run: npm test
+
+      - name: empaquetar
+        run: npm run vsix
+
+      - name: notas de la versión
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
+
+      - name: release en GitHub
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: Apus affinis ${{ github.ref_name }}
+          body_path: notes.md
+          files: apus-affinis.vsix
+          fail_on_unmatched_files: true
+
+      - name: Visual Studio Marketplace
+        if: env.VSCE_PAT != ''
+        run: npx vsce publish --packagePath apus-affinis.vsix
+
+      - name: Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx ovsx publish apus-affinis.vsix

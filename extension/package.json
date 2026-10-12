@@ -1,0 +1,583 @@
+{
+  "name": "apus-affinis",
+  "displayName": "Apus affinis",
+  "description": "%description%",
+  "version": "0.5.1",
+  "preview": true,
+  "publisher": "miguelacaceresr",
+  "license": "MIT",
+  "pricing": "Free",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1b1a1f",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miguelacaceresrios/apus-affinis"
+  },
+  "bugs": {
+    "url": "https://github.com/miguelacaceresrios/apus-affinis/issues"
+  },
+  "homepage": "https://github.com/miguelacaceresrios/apus-affinis#readme",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "apus",
+    "git",
+    "auto commit",
+    "autocommit",
+    "push",
+    "commit",
+    "auto push",
+    "watcher",
+    "secret scanning"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "contributes": {
+    "icons": {
+      "apus-logo": {
+        "description": "%icons.logo%",
+        "default": {
+          "fontPath": "images/apus-icons.woff",
+          "fontCharacter": "\\E001"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "apus",
+          "title": "Apus",
+          "icon": "images/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "apus": [
+        {
+          "id": "apus.repos",
+          "name": "%views.repos%",
+          "icon": "images/activity.svg",
+          "contextualTitle": "Apus"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "apus.repos",
+        "when": "apus.binaryMissing",
+        "contents": "%viewsWelcome.binaryMissing%"
+      },
+      {
+        "view": "apus.repos",
+        "when": "!apus.binaryMissing",
+        "contents": "%viewsWelcome.noRepos%"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "apus.gettingStarted",
+        "title": "%walkthrough.title%",
+        "description": "%walkthrough.description%",
+        "steps": [
+          {
+            "id": "connect",
+            "title": "%walkthrough.connect.title%",
+            "description": "%walkthrough.connect.description%",
+            "media": {
+              "svg": "media/walkthrough/connect.svg",
+              "altText": "%walkthrough.connect.alt%"
+            },
+            "completionEvents": [
+              "onContext:apus.binaryFound"
+            ]
+          },
+          {
+            "id": "watch",
+            "title": "%walkthrough.watch.title%",
+            "description": "%walkthrough.watch.description%",
+            "media": {
+              "svg": "media/walkthrough/watch.svg",
+              "altText": "%walkthrough.watch.alt%"
+            },
+            "completionEvents": [
+              "onContext:apus.watchingAny"
+            ]
+          },
+          {
+            "id": "safety",
+            "title": "%walkthrough.safety.title%",
+            "description": "%walkthrough.safety.description%",
+            "media": {
+              "svg": "media/walkthrough/safety.svg",
+              "altText": "%walkthrough.safety.alt%"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          },
+          {
+            "id": "status",
+            "title": "%walkthrough.status.title%",
+            "description": "%walkthrough.status.description%",
+            "media": {
+              "svg": "media/walkthrough/status.svg",
+              "altText": "%walkthrough.status.alt%"
+            },
+            "completionEvents": [
+              "onCommand:apus.menu"
+            ]
+          },
+          {
+            "id": "rules",
+            "title": "%walkthrough.rules.title%",
+            "description": "%walkthrough.rules.description%",
+            "media": {
+              "svg": "media/walkthrough/rules.svg",
+              "altText": "%walkthrough.rules.alt%"
+            },
+            "completionEvents": [
+              "onCommand:apus.openSettings"
+            ]
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "apus.menu",
+        "title": "%commands.menu%",
+        "category": "Apus",
+        "icon": "$(ellipsis)"
+      },
+      {
+        "command": "apus.addFolder",
+        "title": "%commands.addFolder%",
+        "category": "Apus",
+        "icon": "$(add)"
+      },
+      {
+        "command": "apus.changeFolder",
+        "title": "%commands.changeFolder%",
+        "category": "Apus",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "apus.changeUrl",
+        "title": "%commands.changeUrl%",
+        "category": "Apus",
+        "icon": "$(link)"
+      },
+      {
+        "command": "apus.toggleWatch",
+        "title": "%commands.toggleWatch%",
+        "category": "Apus",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "apus.watch",
+        "title": "%commands.watch%",
+        "category": "Apus",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "apus.pause",
+        "title": "%commands.pause%",
+        "category": "Apus",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "apus.pushNow",
+        "title": "%commands.pushNow%",
+        "category": "Apus",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "apus.showLog",
+        "title": "%commands.showLog%",
+        "category": "Apus",
+        "icon": "$(history)"
+      },
+      {
+        "command": "apus.openRemote",
+        "title": "%commands.openRemote%",
+        "category": "Apus",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "apus.revealFolder",
+        "title": "%commands.revealFolder%",
+        "category": "Apus",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "apus.remove",
+        "title": "%commands.remove%",
+        "category": "Apus",
+        "icon": "$(close)"
+      },
+      {
+        "command": "apus.relocate",
+        "title": "%commands.relocate%",
+        "category": "Apus",
+        "icon": "$(search)"
+      },
+      {
+        "command": "apus.forget",
+        "title": "%commands.forget%",
+        "category": "Apus",
+        "icon": "$(close)"
+      },
+      {
+        "command": "apus.fixLast",
+        "title": "%commands.fixLast%",
+        "category": "Apus",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "apus.explainNested",
+        "title": "%commands.explainNested%",
+        "category": "Apus",
+        "icon": "$(info)"
+      },
+      {
+        "command": "apus.reviewHeld",
+        "title": "%commands.reviewHeld%",
+        "category": "Apus",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "apus.reviewAllowed",
+        "title": "%commands.reviewAllowed%",
+        "category": "Apus",
+        "icon": "$(pass)"
+      },
+      {
+        "command": "apus.openSettings",
+        "title": "%commands.openSettings%",
+        "category": "Apus",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "apus.selectBinary",
+        "title": "%commands.selectBinary%",
+        "category": "Apus"
+      },
+      {
+        "command": "apus.fixBinary",
+        "title": "%commands.fixBinary%",
+        "category": "Apus",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "apus.downloadApus",
+        "title": "%commands.downloadApus%",
+        "category": "Apus",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "apus.getStarted",
+        "title": "%commands.getStarted%",
+        "category": "Apus",
+        "icon": "$(book)"
+      },
+      {
+        "command": "apus.showOutput",
+        "title": "%commands.showOutput%",
+        "category": "Apus",
+        "icon": "$(output)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "apus.watch",
+          "when": "false"
+        },
+        {
+          "command": "apus.pause",
+          "when": "false"
+        },
+        {
+          "command": "apus.relocate",
+          "when": "false"
+        },
+        {
+          "command": "apus.forget",
+          "when": "false"
+        },
+        {
+          "command": "apus.fixLast",
+          "when": "false"
+        },
+        {
+          "command": "apus.explainNested",
+          "when": "false"
+        },
+        {
+          "command": "apus.revealFolder",
+          "when": "false"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "apus.pushNow",
+          "when": "scmProvider == git",
+          "group": "navigation@9"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "apus.addFolder",
+          "when": "view == apus.repos",
+          "group": "navigation@1"
+        },
+        {
+          "command": "apus.openSettings",
+          "when": "view == apus.repos",
+          "group": "navigation@2"
+        },
+        {
+          "command": "apus.showOutput",
+          "when": "view == apus.repos",
+          "group": "more@1"
+        },
+        {
+          "command": "apus.getStarted",
+          "when": "view == apus.repos",
+          "group": "more@2"
+        },
+        {
+          "command": "apus.selectBinary",
+          "when": "view == apus.repos",
+          "group": "more@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "apus.watch",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;paused/",
+          "group": "inline@1"
+        },
+        {
+          "command": "apus.pause",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;watching/",
+          "group": "inline@1"
+        },
+        {
+          "command": "apus.pushNow",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/ && viewItem =~ /;(watching|paused)/",
+          "group": "inline@2"
+        },
+        {
+          "command": "apus.menu",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/",
+          "group": "inline@3"
+        },
+        {
+          "command": "apus.pushNow",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/ && viewItem =~ /;(watching|paused)/",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "apus.showLog",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/ && viewItem =~ /;(watching|paused)/",
+          "group": "1_actions@2"
+        },
+        {
+          "command": "apus.changeFolder",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/",
+          "group": "2_repo@1"
+        },
+        {
+          "command": "apus.changeUrl",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/ && viewItem =~ /;(watching|paused)/",
+          "group": "2_repo@2"
+        },
+        {
+          "command": "apus.openRemote",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/ && viewItem =~ /;web/",
+          "group": "2_repo@3"
+        },
+        {
+          "command": "apus.revealFolder",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/ && viewItem =~ /;(watching|paused)/",
+          "group": "2_repo@4"
+        },
+        {
+          "command": "apus.remove",
+          "when": "view == apus.repos && viewItem =~ /^apusRepo;/",
+          "group": "3_remove@1"
+        },
+        {
+          "command": "apus.revealFolder",
+          "when": "view == apus.repos && viewItem == apus.detail.folder",
+          "group": "inline@1"
+        },
+        {
+          "command": "apus.openRemote",
+          "when": "view == apus.repos && viewItem == apus.detail.url;web",
+          "group": "inline@1"
+        },
+        {
+          "command": "apus.relocate",
+          "when": "view == apus.repos && viewItem == apus.lost",
+          "group": "inline@1"
+        },
+        {
+          "command": "apus.forget",
+          "when": "view == apus.repos && viewItem == apus.lost",
+          "group": "inline@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "apus.pushNow",
+        "key": "shift+alt+p",
+        "mac": "cmd+alt+p"
+      }
+    ],
+    "configuration": {
+      "title": "Apus",
+      "properties": {
+        "apus.autoStart": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "%config.autoStart%"
+        },
+        "apus.watchInterval": {
+          "type": "number",
+          "default": 120,
+          "minimum": 5,
+          "scope": "resource",
+          "markdownDescription": "%config.watchInterval%"
+        },
+        "apus.minInterval": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "%config.minInterval%"
+        },
+        "apus.ignorePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "%config.ignorePatterns%"
+        },
+        "apus.messageTemplate": {
+          "type": "string",
+          "default": "chore: update {files}",
+          "scope": "resource",
+          "markdownDescription": "%config.messageTemplate%"
+        },
+        "apus.checkBeforePush": {
+          "type": "boolean",
+          "default": true,
+          "scope": "machine",
+          "markdownDescription": "%config.checkBeforePush%"
+        },
+        "apus.maxFileSize": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 100,
+          "scope": "machine",
+          "markdownDescription": "%config.maxFileSize%"
+        },
+        "apus.notifications": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors",
+            "off"
+          ],
+          "enumDescriptions": [
+            "%config.notifications.all%",
+            "%config.notifications.errors%",
+            "%config.notifications.off%"
+          ],
+          "default": "all",
+          "scope": "window",
+          "markdownDescription": "%config.notifications%"
+        },
+        "apus.logSize": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 200,
+          "scope": "resource",
+          "markdownDescription": "%config.logSize%"
+        },
+        "apus.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "%config.path%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "check": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"{src,test,scripts}/**/*.{ts,mjs}\" \"*.mjs\"",
+    "format:check": "prettier --check \"{src,test,scripts}/**/*.{ts,mjs}\" \"*.mjs\"",
+    "compile": "npm run check && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "npm run check && node esbuild.mjs --production",
+    "test": "tsc -p tsconfig.test.json && node --test \"out/test/**/*.test.js\"",
+    "test:coverage": "tsc -p tsconfig.test.json && c8 --include \"src/core/**\" --include \"src/repos/state.ts\" --exclude-after-remap --reporter=text --reporter=lcov --check-coverage --lines 90 --branches 85 --functions 85 node --test \"out/test/**/*.test.js\"",
+    "test:integration": "node scripts/integration.mjs",
+    "l10n": "vscode-l10n-dev export --outDir ./l10n ./src",
+    "icons": "node scripts/icons.mjs",
+    "vsix": "vsce package --no-dependencies --out apus-affinis.vsix",
+    "install-ext": "npm run vsix && code --install-extension apus-affinis.vsix --force"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.2",
+    "@types/vscode": "~1.90.0",
+    "@vscode/l10n-dev": "^0.0.35",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.9.2",
+    "c8": "^12.0.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "ovsx": "^1.2.0",
+    "prettier": "^3.9.7",
+    "svg2ttf": "^6.1.0",
+    "ttf2woff": "^3.0.0",
+    "typescript": "~5.9",
+    "typescript-eslint": "^8.70.0"
+  }
+}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/miguelacaceresrios/apus-affinis/security/advisories/new
+    about: Privately. Please don't open a public issue for security problems.
+  - name: A problem with apus itself (the command-line tool)
+    url: https://github.com/miguelacaceresrios/Apus/issues
+    about: The window, the terminal or the binaries of apus.
