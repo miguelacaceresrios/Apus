@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "2.2.0"
+const version = "2.3.0"
 
 var (
 	quiet  bool
@@ -139,7 +139,7 @@ CÓDIGOS DE SALIDA
   3  el push falló
 
 SALIDA JSON (--json)
-  {"apus": "2.2.0", "ok": false, "code": 3, "reason": "offline",
+  {"apus": "2.3.0", "ok": false, "code": 3, "reason": "offline",
    "summary": "el push falló: main → origin/main", "hint": "…",
    "committed": true, "pushed": false, "commit": "a1b2c3d",
    "branch": "main", "target": "origin/main", "url": "https://github.com/…",
